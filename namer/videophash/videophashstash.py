@@ -44,6 +44,9 @@ class StashVideoPerceptualHash:
         # there's nothing to process.
         self.__execute_stash_phash()
 
+    def is_available(self) -> bool:
+        return (self.__phash_path / self.__phash_name).is_file()
+
     def get_hashes(self, file: Path, **kwargs) -> Optional[PerceptualHash]:
         stat = file.stat()
         return self._get_stash_phash(file, stat.st_size, stat.st_mtime)
@@ -69,22 +72,25 @@ class StashVideoPerceptualHash:
                 '--video', str(file)
             ])
 
-        with subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True) as process:
-            stdout, stderr = process.communicate()
-            stdout, stderr = stdout.strip(), stderr.strip()
+        try:
+            with subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True) as process:
+                stdout, stderr = process.communicate()
+                stdout, stderr = stdout.strip(), stderr.strip()
 
-            success = process.returncode == 0
-            if success:
-                data = None
-                try:
-                    data = orjson.loads(stdout)
-                except JSONDecodeError:
-                    logger.error(stdout)
-                    pass
+                success = process.returncode == 0
+                if success:
+                    data = None
+                    try:
+                        data = orjson.loads(stdout)
+                    except JSONDecodeError:
+                        logger.error(stdout)
+                        pass
 
-                if data:
-                    output = return_perceptual_hash(data['duration'], data['phash'], data['oshash'])
-            else:
-                logger.error(stderr)
+                    if data:
+                        output = return_perceptual_hash(data['duration'], data['phash'], data['oshash'])
+                else:
+                    logger.error(stderr)
+        except FileNotFoundError:
+            logger.error('stash videohashes binary not found at {}', self.__phash_path / self.__phash_name)
 
         return output

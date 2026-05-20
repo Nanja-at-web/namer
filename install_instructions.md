@@ -7,7 +7,38 @@ To start off with namer there are 3 main ways to install it:
 * Docker
 * Unraid
 
+There is also a draft Proxmox VE LXC handoff flow for NAS/NFS-first deployments. That path is documented in `docs/proxmox-lxc.md` and uses the draft artifacts in `contrib/proxmoxved/`.
+
 Windows can be an easy setup for the uninitiated and has a pretty good webui that can take care of you in most ways. Docker/Unraid are very strong if you have a bit of know how as they are just more reliable and cause less problems. I'll start with windows and work down the list with installation instructions for each.
+
+Proxmox VE LXC Draft
+-----------------
+
+The Proxmox path in this repository is intentionally LXC-focused, not VM-focused.
+
+Use it when you want:
+
+* a Debian-based Proxmox container
+* NFS-backed media directories
+* the web setup wizard to finish TPDB token, NAS host/share, and watchdog paths
+
+Draft handoff files:
+
+* `contrib/proxmoxved/ct/namer.sh`
+* `contrib/proxmoxved/install/namer-install.sh`
+* `docs/proxmox-lxc.md`
+
+Suggested flow:
+
+1. Create a Debian LXC in Proxmox VE with network access to your NAS.
+2. Run the draft installer inside the container.
+3. If you want the draft flow to match this repository state exactly, set `NAMER_PIP_SPEC` before running the installer so it installs the intended package source.
+4. The installer seeds local bootstrap directories, enables the web UI on port `6980`, and makes `/etc/namer/namer.cfg` writable by the service user for wizard saves.
+5. Start `namer` and open the web UI.
+6. Complete the wizard with your TPDB token, NFS host/share, and final directory layout.
+7. Persist the final NFS mount only after you have validated the wizard values.
+
+The intent here is to hand off a clean artifact set for later upstream adaptation, not to present a finished community-scripts installer.
 
 Windows
 -----------------

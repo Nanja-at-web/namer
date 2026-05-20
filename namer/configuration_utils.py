@@ -2,10 +2,13 @@
 Namer Configuration readers/verifier
 """
 
+import copy
 import os
 import random
 import re
 import shutil
+import sys
+from functools import lru_cache
 from importlib import resources
 from typing import Dict, List, Optional, Callable, Pattern, Any, Tuple
 from configupdater import ConfigUpdater
@@ -168,7 +171,7 @@ def from_str_list_lower(value: Optional[List[str]]) -> str:
 
 
 def to_int(value: Optional[str]) -> Optional[int]:
-    return int(value) if value is not None else None
+    return int(value) if value else None
 
 
 def from_int(value: Optional[int]) -> str:
@@ -241,6 +244,13 @@ def set_boolean(updater: ConfigUpdater, section: str, key: str, value: bool) -> 
 
 
 field_info: Dict[str, Tuple[str, Optional[Callable[[Optional[str]], Any]], Optional[Callable[[Any], str]]]] = {
+    'is_setup_complete': ('setup', to_bool, from_bool),
+    'setup_mode': ('setup', None, None),
+    'storage_mode': ('setup', None, None),
+    'nas_host': ('setup', None, None),
+    'nas_share': ('setup', None, None),
+    'nas_mount_path': ('setup', to_path, from_path),
+    'nas_mount_options': ('setup', None, None),
     'porndb_token': ('namer', None, None),
     'name_parser': ('namer', None, None),
     'inplace_name': ('namer', None, None),
@@ -342,7 +352,20 @@ def to_ini(config: NamerConfig) -> str:
     return str(updater)
 
 
-def from_config(config: ConfigUpdater, namer_config: NamerConfig) -> NamerConfig:
+def _clone_default_value(value: Any) -> Any:
+    return copy.copy(value)
+
+
+def _base_default_field_values() -> Dict[str, Any]:
+    default_values = NamerConfig()
+    return {name: getattr(default_values, name) for name in field_info if hasattr(default_values, name)}
+
+
+def _read_config(
+    config: ConfigUpdater,
+    namer_config: NamerConfig,
+    blank_default_values: Dict[str, Any],
+) -> NamerConfig:
     """
     Given a config parser pointed at a namer.cfg file, return a NamerConfig with the file's parameters.
     """
@@ -350,10 +373,14 @@ def from_config(config: ConfigUpdater, namer_config: NamerConfig) -> NamerConfig
     for name in keys:
         info = field_info.get(name)
         if info and info[0]:
-            new_value = get_str(config, info[0], name)
-            if new_value or not hasattr(namer_config, name):
+            section = info[0]
+            has_value = config.has_option(section, name)
+            new_value = get_str(config, section, name)
+            if has_value or not hasattr(namer_config, name):
                 type_converter_lambda: Optional[Callable[[Optional[str]], Any]] = info[1]
-                if type_converter_lambda:
+                if has_value and not new_value and name in blank_default_values:
+                    setattr(namer_config, name, _clone_default_value(blank_default_values[name]))
+                elif type_converter_lambda:
                     setattr(namer_config, name, type_converter_lambda(new_value))
                 else:
                     setattr(namer_config, name, new_value)
@@ -362,6 +389,18 @@ def from_config(config: ConfigUpdater, namer_config: NamerConfig) -> NamerConfig
         setattr(namer_config, 'retry_time', f'03:{random.randint(0, 59):0>2}')  # noqa: B010
 
     return namer_config
+
+
+@lru_cache(maxsize=1)
+def _packaged_default_field_values() -> Dict[str, Any]:
+    config = ConfigUpdater(allow_no_value=True)
+    config.read_string(resource_file_to_str('namer', 'namer.cfg.default'))
+    default_values = _read_config(config, NamerConfig(), _base_default_field_values())
+    return {name: getattr(default_values, name) for name in field_info if hasattr(default_values, name)}
+
+
+def from_config(config: ConfigUpdater, namer_config: NamerConfig) -> NamerConfig:
+    return _read_config(config, namer_config, _packaged_default_field_values())
 
 
 def resource_file_to_str(package: str, file_name: str) -> str:
@@ -398,12 +437,10 @@ def default_config(user_set: Optional[Path] = None) -> NamerConfig:
     namer_config.config_updater = config
 
     user_config = ConfigUpdater(allow_no_value=True)
-    cfg_paths = [
-        user_set,
-        os.environ.get('NAMER_CONFIG'),
-        Path.home() / '.namer.cfg',
-        '.namer.cfg',
-    ]
+    cfg_paths = [user_set, os.environ.get('NAMER_CONFIG')]
+    if sys.platform != 'win32':
+        cfg_paths.append(Path('/etc/namer/namer.cfg'))
+    cfg_paths.extend([Path.home() / '.namer.cfg', '.namer.cfg'])
 
     for file in cfg_paths:
         if not file:

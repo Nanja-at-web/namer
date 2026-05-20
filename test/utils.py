@@ -68,7 +68,11 @@ class Wait:
 
 def sample_config() -> NamerConfig:
     """
-    Attempts reading various locations to fine a namer.cfg file.
+    Build a representative configured test instance from the packaged defaults.
+
+    Most tests exercise namer's steady state rather than first-run setup, so the
+    helper marks setup as complete unless a test opts into wizard behaviour by
+    overriding the flag explicitly.
     """
     config = ConfigUpdater(allow_no_value=True)
     config_str = ''
@@ -78,6 +82,7 @@ def sample_config() -> NamerConfig:
         config_str = resources.read_text('namer', 'namer.cfg.default')
     config.read_string(config_str)
     namer_config = from_config(config, NamerConfig())
+    namer_config.is_setup_complete = True
     namer_config.extra_sleep_time = 0
     namer_config.console_format = '<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <4}</level> | {message}'
     namer_config.config_updater = config

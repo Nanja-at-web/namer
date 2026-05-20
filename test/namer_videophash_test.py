@@ -55,6 +55,9 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
         """
         Test phash calculation.
         """
+        if not self.__stash_generator.is_available():
+            self.skipTest('stash videohashes binary is not available in this environment')
+
         expected_phash = imagehash.hex_to_hash('88982eebd3552d9c')
         expected_oshash = 'ae547a6b1d8488bc'
         expected_duration = 30

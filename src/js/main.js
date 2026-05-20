@@ -14,6 +14,7 @@ import 'datatables.net-fixedheader-bs5'
 import { escape } from 'lodash'
 
 import { Helpers } from './helpers'
+import './setup'
 import './themes'
 
 window.jQuery = $
@@ -36,108 +37,127 @@ const deleteButton = $('#deleteButton')
 
 let modalButton
 
-searchButton.on('click', function () {
-  resultForm.html(Helpers.getProgressBar())
+if (searchButton.length) {
+  searchButton.on('click', function () {
+    resultForm.html(Helpers.getProgressBar())
 
-  const data = {
-    query: queryInput.val(),
-    file: queryInput.data('file'),
-    type: queryType.val()
-  }
+    const data = {
+      query: queryInput.val(),
+      file: queryInput.data('file'),
+      type: queryType.val()
+    }
 
-  const title = escape(`(${data.file}) [${data.query}]`)
-  resultFormTitle.html(title)
-  resultFormTitle.attr('title', title)
+    const title = escape(`(${data.file}) [${data.query}]`)
+    resultFormTitle.html(title)
+    resultFormTitle.attr('title', title)
 
-  Helpers.request('./api/v1/get_search', data, function (data) {
-    Helpers.render('searchResults', data, resultForm, function (selector) {
-      Helpers.initTooltips(selector)
+    Helpers.request('./api/v1/get_search', data, function (data) {
+      Helpers.render('searchResults', data, resultForm, function (selector) {
+        Helpers.initTooltips(selector)
+      })
     })
   })
-})
+}
 
-phashButton.on('click', function () {
-  resultForm.html(Helpers.getProgressBar())
+if (phashButton.length) {
+  phashButton.on('click', function () {
+    resultForm.html(Helpers.getProgressBar())
 
-  const data = {
-    file: queryInput.data('file'),
-    type: queryType.val()
-  }
+    const data = {
+      file: queryInput.data('file'),
+      type: queryType.val()
+    }
 
-  const title = escape(`(${data.file})`)
-  resultFormTitle.html(title)
-  resultFormTitle.attr('title', title)
+    const title = escape(`(${data.file})`)
+    resultFormTitle.html(title)
+    resultFormTitle.attr('title', title)
 
-  Helpers.request('./api/v1/get_phash', data, function (data) {
-    Helpers.render('searchResults', data, resultForm, function (selector) {
-      Helpers.initTooltips(selector)
+    Helpers.request('./api/v1/get_phash', data, function (data) {
+      Helpers.render('searchResults', data, resultForm, function (selector) {
+        Helpers.initTooltips(selector)
+      })
     })
   })
-})
+}
 
-queryInput.on('keyup', function (e) {
-  if (e.which === 13) {
-    searchButton.click()
-  }
-})
+if (queryInput.length) {
+  queryInput.on('keyup', function (e) {
+    if (e.which === 13) {
+      searchButton.click()
+    }
+  })
+}
 
-filesResult.on('click', '.match', function () {
-  modalButton = $(this)
-  const query = modalButton.data('query')
-  const file = modalButton.data('file')
-  queryInput.val(query)
-  queryInput.data('file', file)
-})
+if (filesResult.length) {
+  filesResult.on('click', '.match', function () {
+    modalButton = $(this)
+    const query = modalButton.data('query')
+    const file = modalButton.data('file')
+    queryInput.val(query)
+    queryInput.data('file', file)
+  })
 
-filesResult.on('click', '.log', function () {
-  logForm.html(Helpers.getProgressBar())
-  modalButton = $(this)
-  const data = {
-    file: modalButton.data('file')
-  }
+  filesResult.on('click', '.log', function () {
+    logForm.html(Helpers.getProgressBar())
+    modalButton = $(this)
+    const data = {
+      file: modalButton.data('file')
+    }
 
-  const title = escape(`[${data.file}]`)
+    const title = escape(`[${data.file}]`)
 
-  logFormTitle.html(title)
-  logFormTitle.attr('title', title)
+    logFormTitle.html(title)
+    logFormTitle.attr('title', title)
 
-  Helpers.request('./api/v1/read_failed_log', data, function (data) {
-    Helpers.render('logFile', data, logForm, function (selector) {
-      Helpers.initTooltips(selector)
+    Helpers.request('./api/v1/read_failed_log', data, function (data) {
+      Helpers.render('logFile', data, logForm, function (selector) {
+        Helpers.initTooltips(selector)
+      })
     })
   })
-})
 
-filesResult.on('click', '.delete', function () {
-  modalButton = $(this)
-  const file = modalButton.data('file')
-  deleteFile.val(file)
-  deleteFile.data('file', file)
-})
-
-refreshFiles.on('click', function () {
-  Helpers.refreshFiles(filesResult, tableButtons, $(this).data('target'))
-  if (queueSize) {
-    Helpers.updateQueueSize(queueSize)
-  }
-})
-
-searchForm.on('shown.bs.modal', function () {
-  queryInput.focus()
-})
-
-resultForm.on('click', '.rename', rename)
-logForm.on('click', '.rename', rename)
-
-deleteButton.on('click', function () {
-  const data = {
-    file: deleteFile.data('file')
-  }
-
-  Helpers.request('./api/v1/delete', data, function () {
-    Helpers.removeRow(modalButton)
+  filesResult.on('click', '.delete', function () {
+    modalButton = $(this)
+    const file = modalButton.data('file')
+    deleteFile.val(file)
+    deleteFile.data('file', file)
   })
-})
+}
+
+if (refreshFiles.length) {
+  refreshFiles.on('click', function () {
+    Helpers.refreshFiles(filesResult, tableButtons, $(this).data('target'))
+    if (queueSize.length) {
+      Helpers.updateQueueSize(queueSize)
+    }
+  })
+}
+
+if (searchForm.length) {
+  searchForm.on('shown.bs.modal', function () {
+    queryInput.focus()
+  })
+}
+
+if (resultForm.length) {
+  resultForm.on('click', '.rename', rename)
+}
+
+if (logForm.length) {
+  logForm.on('click', '.rename', rename)
+}
+
+if (deleteButton.length) {
+  deleteButton.on('click', function () {
+    const data = {
+      file: deleteFile.data('file')
+    }
+
+    Helpers.request('./api/v1/delete', data, function () {
+      Helpers.removeRow(modalButton)
+    })
+  })
+}
 
 function rename () {
   const data = {
@@ -150,9 +170,11 @@ function rename () {
   })
 }
 
-Helpers.setTableSort(filesResult, tableButtons)
+if (filesResult.children('table').length) {
+  Helpers.setTableSort(filesResult, tableButtons)
+}
 
-if (queueSize) {
+if (queueSize.length) {
   Helpers.updateQueueSize(queueSize)
   setInterval(function () {
     Helpers.updateQueueSize(queueSize)
