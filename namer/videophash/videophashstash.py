@@ -1,5 +1,6 @@
 import platform
 import subprocess
+import tempfile
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional
@@ -13,7 +14,8 @@ from namer.videophash import PerceptualHash, return_perceptual_hash
 
 class StashVideoPerceptualHash:
     __home_path: Path = Path(__file__).parent.parent
-    __phash_path: Path = __home_path / 'tools'
+    __packaged_phash_path: Path = __home_path / 'tools'
+    __fallback_phash_path: Path = Path(tempfile.gettempdir()) / 'namer' / 'tools'
     __phash_name: str = 'videohashes'
     __supported_arch: dict = {
         'amd64': 'amd64',
@@ -29,7 +31,10 @@ class StashVideoPerceptualHash:
     }
 
     def __init__(self):
-        if not self.__phash_path.is_dir():
+        if self.__packaged_phash_path.is_dir():
+            self.__phash_path = self.__packaged_phash_path
+        else:
+            self.__phash_path = self.__fallback_phash_path
             self.__phash_path.mkdir(exist_ok=True, parents=True)
 
         system = platform.system().lower()
