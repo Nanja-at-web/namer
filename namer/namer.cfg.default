@@ -1,3 +1,26 @@
+[setup]
+
+# Tracks whether first-run setup has been completed.
+is_setup_complete = False
+
+# Initial setup experience mode.
+setup_mode = wizard
+
+# Storage backend mode.
+storage_mode = nfs
+
+# NAS host name or IP.
+nas_host =
+
+# NAS share name.
+nas_share =
+
+# Mount path for the NAS share.
+nas_mount_path = /mnt/nas
+
+# Mount options used for the NAS share.
+nas_mount_options = defaults,_netdev
+
 [namer]
 
 # token to access porndb.

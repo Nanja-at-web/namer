@@ -5,6 +5,7 @@ A wrapper allowing shutdown of a Flask server.
 import datetime
 import logging
 import mimetypes
+from pathlib import Path
 from queue import Queue
 from threading import Thread
 from typing import Any, List, Optional, Union
@@ -49,8 +50,8 @@ class GenericWebServer:
     def __init__(self, host: str, port: int, webroot: Optional[str], blueprints: List[Blueprint], static_path: Optional[str] = 'public', quiet=True):
         self.__host = host
         self.__port = port
-        self.__path = webroot if webroot else '/'
-        self.__app = Flask(__name__, static_url_path=self.__path, static_folder=static_path, template_folder='templates')
+        self.__path = self.__normalize_webroot(webroot)
+        self.__app = Flask(__name__, static_url_path=self.__path, static_folder=static_path, template_folder=str(self.__get_template_folder()))
         self.__blueprints = blueprints
 
         if quiet:
@@ -62,6 +63,26 @@ class GenericWebServer:
         self.__make_server()
         self.__register_custom_processors()
 
+    @staticmethod
+    def __get_template_folder() -> Path:
+        package_templates = Path(__file__).resolve().parent / 'templates'
+        if package_templates.exists():
+            return package_templates
+
+        return Path(__file__).resolve().parents[2] / 'src' / 'templates'
+
+    @staticmethod
+    def __normalize_webroot(webroot: Optional[str]) -> str:
+        if not webroot:
+            return '/'
+
+        normalized = webroot.strip()
+        if not normalized:
+            return '/'
+
+        normalized = f'/{normalized.strip("/")}'
+        return '/' if normalized == '/' else normalized
+
     def __make_server(self):
         self.__app.wsgi_app = ProxyFix(self.__app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
         self.__compress.init_app(self.__app)
@@ -70,7 +91,10 @@ class GenericWebServer:
 
     def __register_blueprints(self):
         for blueprint in self.__blueprints:
-            blueprint_path = self.__path + blueprint.url_prefix if blueprint.url_prefix else self.__path
+            if blueprint.url_prefix:
+                blueprint_path = f'{self.__path.rstrip("/")}/{blueprint.url_prefix.lstrip("/")}'
+            else:
+                blueprint_path = self.__path
             self.__app.register_blueprint(blueprint, url_prefix=blueprint_path)
 
     def __add_mime_types(self):
@@ -103,6 +127,9 @@ class GenericWebServer:
         self.__app.jinja_env.lstrip_blocks = True
 
         self.__app.json = CustomJSONProvider(self.__app)
+
+    def get_app(self) -> Flask:
+        return self.__app
 
     def start(self):
         logger.info(f'Starting server: {self.get_url()}')
@@ -153,7 +180,7 @@ class GenericWebServer:
         return isinstance(item, dict)
 
     @staticmethod
-    def timestamp_to_datetime(item: int) -> datetime:
+    def timestamp_to_datetime(item: int) -> datetime.datetime:
         return datetime.datetime.fromtimestamp(item)
 
     @staticmethod
@@ -161,7 +188,7 @@ class GenericWebServer:
         return str(datetime.timedelta(seconds=item))
 
     @staticmethod
-    def strftime(item: datetime, datetime_format: str) -> str:
+    def strftime(item: datetime.datetime, datetime_format: str) -> str:
         return item.strftime(datetime_format)
 
 
@@ -183,9 +210,13 @@ class NamerWebServer(GenericWebServer):
 
 class CustomJSONProvider(JSONProvider):
     def dumps(self, obj: Any, **kwargs: Any):
+        if kwargs:
+            return super().dumps(obj, **kwargs)
         return orjson.dumps(obj, option=orjson.OPT_PASSTHROUGH_SUBCLASS, default=default).decode('UTF-8')
 
     def loads(self, s: str | bytes, **kwargs: Any):
+        if kwargs:
+            return super().loads(s, **kwargs)
         return orjson.loads(s)
 
 

@@ -10,6 +10,8 @@ from flask.wrappers import Response
 
 from namer.command import make_command_relative_to, move_command_files
 from namer.configuration import NamerConfig
+from namer.mounts import probe_nfs_share
+from namer.setup import apply_setup_payload, setup_payload_from_request, validate_nfs_probe_payload, validate_setup_payload, write_setup_config
 from namer.web.actions import delete_file, get_failed_files, get_phash_results, get_queue_size, get_queued_files, get_search_results, human_format, read_failed_log_file
 
 
@@ -18,6 +20,10 @@ def get_routes(config: NamerConfig, command_queue: Queue) -> Blueprint:
     Builds a blueprint for flask with passed in context, the NamerConfig.
     """
     blueprint = Blueprint('api', __name__, url_prefix='/api')
+
+    def failed_redirect() -> str:
+        web_root = (config.web_root or '').rstrip('/')
+        return f'{web_root}/failed' if web_root else '/failed'
 
     @blueprint.route('/v1/render', methods=['POST'])
     def render() -> Response:
@@ -119,6 +125,66 @@ def get_routes(config: NamerConfig, command_queue: Queue) -> Blueprint:
             }
 
         return jsonify(res)
+
+    @blueprint.route('/v1/setup/validate', methods=['POST'])
+    def setup_validate() -> Response:
+        payload = setup_payload_from_request(request.json or {})
+        errors = validate_setup_payload(payload)
+
+        response = jsonify(
+            {
+                'ok': len(errors) == 0,
+                'errors': errors,
+            },
+        )
+        if errors:
+            response.status_code = 400
+        return response
+
+    @blueprint.route('/v1/setup/save', methods=['POST'])
+    def setup_save() -> Response:
+        payload = setup_payload_from_request(request.json or {})
+        errors = validate_setup_payload(payload)
+        if errors:
+            response = jsonify(
+                {
+                    'ok': False,
+                    'errors': errors,
+                    'message': 'Setup payload is invalid.',
+                },
+            )
+            response.status_code = 400
+            return response
+
+        write_setup_config(config.config_file, payload)
+        apply_setup_payload(config, payload)
+        return jsonify(
+            {
+                'ok': True,
+                'redirect': failed_redirect(),
+            },
+        )
+
+    @blueprint.route('/v1/setup/test_nfs', methods=['POST'])
+    def setup_test_nfs() -> Response:
+        payload = setup_payload_from_request(request.json or {})
+        errors = validate_nfs_probe_payload(payload)
+        if errors:
+            response = jsonify(
+                {
+                    'ok': False,
+                    'errors': errors,
+                    'message': 'NFS probe payload is invalid.',
+                },
+            )
+            response.status_code = 400
+            return response
+
+        result = probe_nfs_share(payload.nas_host, payload.nas_share, payload.nas_mount_path)
+        response = jsonify(result)
+        if not result.get('ok'):
+            response.status_code = 502
+        return response
 
     @blueprint.route('/healthcheck', methods=['GET'])
     def healthcheck() -> Response:

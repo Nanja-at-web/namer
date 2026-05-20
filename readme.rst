@@ -124,6 +124,20 @@ Pip/Python usage
 
 A detailed install tutorial can be found at `Install Instructions`_
 
+Proxmox LXC handoff
+--------------------
+
+A draft Proxmox VE LXC handoff artifact set is included for the NFS-oriented setup wizard flow:
+
+* ``contrib/proxmoxved/ct/namer.sh``
+* ``contrib/proxmoxved/install/namer-install.sh``
+* ``docs/proxmox-lxc.md``
+
+This is intentionally a handoff artifact set for LXC deployments, not a finished upstream ``community-scripts/ProxmoxVED`` submission.
+
+The draft installer seeds a wizard-safe bootstrap config with ``web = True`` and local directories under ``/var/lib/namer`` so the first-boot setup UI is reachable before the final NAS/NFS paths are applied.
+It also makes ``/etc/namer/namer.cfg`` writable by the service user so the setup wizard can persist its changes, and it supports a ``NAMER_PIP_SPEC`` override when you need the runtime package source to match this repo state during handoff validation.
+
 ---------------------------
 
 There is a well documented template of namer.cfg in this git repo, which is broken up in to three sections.

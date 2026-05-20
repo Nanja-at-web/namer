@@ -2,25 +2,56 @@
 {% block title %}Settings{% endblock %}
 {% set active_page = "settings" %}
 {% block content %}
-    <form>
+    <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3 mb-4">
+        <div>
+            <h1 class="h3 mb-2">Settings</h1>
+            <p class="text-body-secondary mb-0">
+                Current configuration is shown read-only so it stays aligned with the active install.
+            </p>
+        </div>
+        {% if config.is_setup_complete %}
+            <span class="badge text-bg-success align-self-start">Setup complete</span>
+        {% else %}
+            <span class="badge text-bg-warning align-self-start">Setup pending</span>
+        {% endif %}
+    </div>
+
+    <div class="alert alert-secondary" role="alert">
+        Setup-managed values are displayed here for review. The setup wizard remains the intended place for first-boot NAS and directory onboarding.
+    </div>
+
+    <form class="row g-4">
         {% for section, settings in config.to_dict().items() %}
-            <p>[{{ section }}]</p>
-            {% for key, value in settings.items() %}
-                <div class="{% if value is not boolean %}form-floating {% endif %}mb-3">
-                    {% if value is string or value is none %}
-                        <input disabled class="form-control" type="text" id="{{ key }}" value="{{ value }}" placeholder>
-                    {% elif value|is_list %}
-                        <input disabled class="form-control" type="text" id="{{ key }}" value="{{ value|from_list }}"  placeholder>
-                    {% elif value|is_dict %}
-                        <input disabled class="form-control" type="text" id="{{ key }}" value="{{ value }}" placeholder>
-                    {% elif value is integer %}
-                        <input disabled class="form-control" type="number" id="{{ key }}" value="{{ value }}" placeholder>
-                    {% elif value is boolean %}
-                        <input disabled class="form-check-input" type="checkbox" id="{{ key }}"{% if value %} checked{% endif %}>
-                    {% endif %}
-                    <label for="{{ key }}">{{ key }}</label>
+            <div class="col-12 col-xl-6">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-header">
+                        <strong>{{ section }}</strong>
+                    </div>
+                    <div class="card-body">
+                        {% for key, value in settings.items() %}
+                            <div class="{% if value is not boolean %}form-floating {% endif %}mb-3">
+                                {% if value is string or value is none %}
+                                    <input disabled class="form-control" type="text" id="{{ key }}" value="{{ value }}" placeholder>
+                                {% elif value|is_list %}
+                                    <input disabled class="form-control" type="text" id="{{ key }}" value="{{ value|from_list }}" placeholder>
+                                {% elif value|is_dict %}
+                                    <input disabled class="form-control" type="text" id="{{ key }}" value="{{ value }}" placeholder>
+                                {% elif value is integer %}
+                                    <input disabled class="form-control" type="number" id="{{ key }}" value="{{ value }}" placeholder>
+                                {% elif value is boolean %}
+                                    <div class="form-check">
+                                        <input disabled class="form-check-input" type="checkbox" id="{{ key }}"{% if value %} checked{% endif %}>
+                                        <label class="form-check-label" for="{{ key }}">{{ key }}</label>
+                                    </div>
+                                {% endif %}
+                                {% if value is not boolean %}
+                                    <label for="{{ key }}">{{ key }}</label>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
                 </div>
-            {% endfor %}
+            </div>
         {% endfor %}
     </form>
 {% endblock %}

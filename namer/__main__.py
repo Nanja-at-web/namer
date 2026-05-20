@@ -24,7 +24,7 @@ import namer.namer
 import namer.videohashes
 import namer.watchdog
 import namer.web
-from namer.configuration_utils import default_config
+from namer.configuration_utils import copy_resource_to_file, default_config
 from namer.models import db
 
 DESCRIPTION = (
@@ -47,8 +47,13 @@ def create_default_config_if_missing():
     """
     Find or create config.
     """
-    config_file = Path('.namer.conf')
-    print('Creating default config file here: {}', config_file)
+    config_file = Path('.namer.cfg')
+    if config_file.is_file():
+        print(f'Config file already exists here: {config_file}')
+        return
+
+    copy_resource_to_file('namer', 'namer.cfg.default', config_file)
+    print(f'Creating default config file here: {config_file}')
     print('please edit the token or any other settings whose defaults you want changed.')
 
 

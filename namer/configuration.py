@@ -42,6 +42,14 @@ class NamerConfig:
     Configuration for namer and namer_watchdog
     """
 
+    is_setup_complete: bool = False
+    setup_mode: str = 'wizard'
+    storage_mode: str = 'nfs'
+    nas_host: str = ''
+    nas_share: str = ''
+    nas_mount_path: Path = Path('/mnt/nas')
+    nas_mount_options: str = 'defaults,_netdev'
+
     porndb_token: str
     """
     token to access porndb.
@@ -523,6 +531,8 @@ class NamerConfig:
             self.dest_dir = self.dest_dir.resolve()
         if hasattr(self, 'failed_dir'):
             self.failed_dir = self.failed_dir.resolve()
+        if hasattr(self, 'nas_mount_path'):
+            self.nas_mount_path = self.nas_mount_path.resolve()
 
     def __str__(self):
         config = self.to_dict()
@@ -548,6 +558,15 @@ class NamerConfig:
             porndb_token = '*' * len(self.porndb_token)
 
         config = {
+            'Setup Config': {
+                'is_setup_complete': self.is_setup_complete,
+                'setup_mode': self.setup_mode,
+                'storage_mode': self.storage_mode,
+                'nas_host': self.nas_host,
+                'nas_share': self.nas_share,
+                'nas_mount_path': str(self.nas_mount_path),
+                'nas_mount_options': self.nas_mount_options,
+            },
             'Namer Config': {
                 'porndb_token': porndb_token,
                 'inplace_name': self.inplace_name,

@@ -4,12 +4,19 @@ Defines the web routes of a Flask webserver for namer.
 
 from queue import Queue
 
-from flask import Blueprint, redirect, render_template, request
+from flask import Blueprint, redirect, render_template, request, url_for
 from flask.wrappers import Response
 
 from namer.configuration import NamerConfig
 from namer.metadataapi import get_user_info
 from namer.web.actions import get_failed_files, get_queued_files
+
+
+def require_completed_setup(config: NamerConfig) -> Response | None:
+    if not config.is_setup_complete:
+        return redirect(url_for('web.setup'), code=302)  # type: ignore
+
+    return None
 
 
 def get_routes(config: NamerConfig, command_queue: Queue) -> Blueprint:
@@ -18,27 +25,28 @@ def get_routes(config: NamerConfig, command_queue: Queue) -> Blueprint:
     """
     blueprint = Blueprint('web', __name__)
 
-    """
-    @blueprint.route('/')
-    def index() -> str:
-         data = []
-         for rule in app.url_map.iter_rules():
-             if rule.methods is not None and 'GET' in rule.methods and has_no_empty_params(rule):
-                 url = url_for(rule.endpoint, **(rule.defaults or {}))
-                 data.append((url, rule.endpoint))
-
-         return render_template('pages/index.html', links=data)
-    """
-
     @blueprint.route('/')
     def index() -> Response:
-        return redirect('failed', code=302)  # type: ignore
+        redirect_response = require_completed_setup(config)
+        if redirect_response:
+            return redirect_response
+
+        return redirect(url_for('web.failed'), code=302)  # type: ignore
+
+    @blueprint.route('/setup')
+    def setup() -> str:
+        theme = request.cookies.get('theme', 'auto')
+        return render_template('pages/setup.html', theme=theme)
 
     @blueprint.route('/failed')
-    def failed() -> str:
+    def failed() -> Response | str:
         """
         Displays all failed to name files.
         """
+        redirect_response = require_completed_setup(config)
+        if redirect_response:
+            return redirect_response
+
         data = get_failed_files(config)
         theme = request.cookies.get('theme', 'auto')
         user = get_user_info(config)
@@ -46,10 +54,14 @@ def get_routes(config: NamerConfig, command_queue: Queue) -> Blueprint:
         return render_template('pages/failed.html', data=data, config=config, theme=theme, user=user)
 
     @blueprint.route('/queue')
-    def queue() -> str:
+    def queue() -> Response | str:
         """
         Displays all queued files.
         """
+        redirect_response = require_completed_setup(config)
+        if redirect_response:
+            return redirect_response
+
         data = get_queued_files(command_queue, config)
         theme = request.cookies.get('theme', 'auto')
         user = get_user_info(config)
@@ -57,10 +69,14 @@ def get_routes(config: NamerConfig, command_queue: Queue) -> Blueprint:
         return render_template('pages/queue.html', data=data, config=config, theme=theme, user=user)
 
     @blueprint.route('/settings')
-    def settings() -> str:
+    def settings() -> Response | str:
         """
         Displays namer settings.
         """
+        redirect_response = require_completed_setup(config)
+        if redirect_response:
+            return redirect_response
+
         theme = request.cookies.get('theme', 'auto')
         user = get_user_info(config)
 
