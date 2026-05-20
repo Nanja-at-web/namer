@@ -4,13 +4,14 @@ Tests setup configuration defaults and parsing.
 
 from importlib import resources
 from pathlib import Path
+import tempfile
 import unittest
 
 from configupdater import ConfigUpdater
 from loguru import logger
 
 from namer.configuration import NamerConfig
-from namer.configuration_utils import from_config
+from namer.configuration_utils import default_config, from_config
 from test import utils
 
 
@@ -77,6 +78,30 @@ nas_mount_options = rw
         self.assertEqual(namer_config.nas_share, 'media')
         self.assertEqual(namer_config.nas_mount_path, mount_path.resolve())
         self.assertEqual(namer_config.nas_mount_options, 'rw')
+
+    def test_default_config_tracks_effective_config_path(self) -> None:
+        with tempfile.TemporaryDirectory(prefix='namer-config-') as tmpdir:
+            config_file = Path(tmpdir) / 'namer.cfg'
+            config_file.write_text(
+                """
+[setup]
+is_setup_complete = True
+
+[namer]
+porndb_token = abc123
+
+[watchdog]
+watch_dir = /tmp/watch
+work_dir = /tmp/work
+failed_dir = /tmp/failed
+dest_dir = /tmp/dest
+""",
+                encoding='UTF-8',
+            )
+
+            namer_config = default_config(config_file)
+
+            self.assertEqual(namer_config.config_file, config_file.resolve())
 
     def test_proxmox_lxc_handoff_artifact_paths_exist(self) -> None:
         repo_root = Path(__file__).resolve().parent.parent
