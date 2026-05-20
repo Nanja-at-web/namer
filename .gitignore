@@ -14,6 +14,8 @@ init
 node_modules
 .env
 namer/web/public/assets
+!namer/web/public/assets/
+!namer/web/public/assets/**
 namer/web/templates
 !namer/web/templates/
 !namer/web/templates/**
