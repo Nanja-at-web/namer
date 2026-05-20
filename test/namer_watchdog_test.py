@@ -7,6 +7,7 @@ import time
 from typing import Any
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from loguru import logger
 from mutagen.mp4 import MP4
@@ -472,6 +473,18 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
             self.assertEqual(len(list(config.failed_dir.iterdir())), 0)
             self.assertEqual(len(list(config.watch_dir.iterdir())), 0)
             self.assertTrue(nfo_file.exists() and nfo_file.is_file() and nfo_file.stat().st_size != 0)
+
+    def test_create_watcher_skips_tpdb_auth_when_setup_incomplete(self):
+        config = sample_config()
+        config.is_setup_complete = False
+        config.web = False
+
+        with environment(config) as (temp_dir, watcher_config, configured):
+            with mock.patch('namer.watchdog.get_user_info') as mock_get_user_info:
+                watcher = create_watcher(configured)
+
+            self.assertIsInstance(watcher, MovieWatcher)
+            mock_get_user_info.assert_not_called()
 
 
 if __name__ == '__main__':

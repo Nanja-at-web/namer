@@ -340,11 +340,14 @@ def create_watcher(namer_watchdog_config: NamerConfig) -> MovieWatcher:
     if not verify_configuration(namer_watchdog_config, PartialFormatter()):
         sys.exit(-1)
 
-    user = get_user_info(namer_watchdog_config)
-    if not user:
-        sys.exit(-1)
+    if namer_watchdog_config.is_setup_complete:
+        user = get_user_info(namer_watchdog_config)
+        if not user:
+            sys.exit(-1)
 
-    logger.info('Logged as {name} ({id})'.format(**user))
+        logger.info('Logged as {name} ({id})'.format(**user))
+    else:
+        logger.info('Setup wizard mode enabled; skipping TPDB authentication until setup is complete')
 
     if namer_watchdog_config.retry_time:
         schedule.every().day.at(namer_watchdog_config.retry_time).do(lambda: retry_failed(namer_watchdog_config))
