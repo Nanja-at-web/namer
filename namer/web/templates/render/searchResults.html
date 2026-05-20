@@ -1,0 +1,1 @@
+<div class="row row-cols-auto justify-content-center"> {% if data['files'] %} {% for file in data['files'] %} <div class="col m-1 mb-2"> {% include 'components/card.html' %} </div> {% endfor %} {% else %} <div class="col m-1 text-center"><span>No results found</span></div> {% endif %} </div>
