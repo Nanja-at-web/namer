@@ -80,6 +80,29 @@ def test_setup_page_contains_nas_and_token_fields(client, config):
     assert 'name="watchDir"' in body
 
 
+def test_setup_page_uses_runtime_defaults_and_webroot(client, config):
+    config.is_setup_complete = False
+    config.web_root = '/namer'
+    config.storage_mode = 'nfs'
+    config.nas_host = '192.168.1.50'
+    config.nas_share = '/share/Media'
+    config.nas_mount_path = '/mnt/nas'
+    config.nas_mount_options = 'defaults,_netdev'
+    config.watch_dir = '/mnt/nas/watch'
+    config.work_dir = '/var/lib/namer/work'
+    config.failed_dir = '/var/lib/namer/failed'
+    config.dest_dir = '/mnt/nas/dest'
+
+    response = client.get('/setup')
+
+    body = response.data.decode()
+
+    assert 'data-api-url="/namer/api/v1/setup/save"' in body
+    assert 'value="192.168.1.50"' in body
+    assert 'value="/share/Media"' in body
+    assert 'value="/mnt/nas/dest"' in body
+
+
 def test_healthcheck_is_not_redirected_when_config_incomplete(client, config):
     config.is_setup_complete = False
 

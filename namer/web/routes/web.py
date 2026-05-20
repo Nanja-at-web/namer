@@ -36,7 +36,24 @@ def get_routes(config: NamerConfig, command_queue: Queue) -> Blueprint:
     @blueprint.route('/setup')
     def setup() -> str:
         theme = request.cookies.get('theme', 'auto')
-        return render_template('pages/setup.html', theme=theme)
+        return render_template(
+            'pages/setup.html',
+            config=config,
+            theme=theme,
+            user=None,
+            active_page='setup',
+            setup_defaults={
+                'storageMode': config.storage_mode,
+                'nasHost': config.nas_host,
+                'nasShare': config.nas_share,
+                'nasMountPath': config.nas_mount_path,
+                'nasMountOptions': config.nas_mount_options,
+                'watchDir': str(config.watch_dir),
+                'workDir': str(config.work_dir),
+                'failedDir': str(config.failed_dir),
+                'destDir': str(config.dest_dir),
+            },
+        )
 
     @blueprint.route('/failed')
     def failed() -> Response | str:
