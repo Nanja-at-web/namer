@@ -15,6 +15,11 @@ node_modules
 .env
 namer/web/public/assets
 namer/web/templates
+!namer/web/templates/
+!namer/web/templates/components/
+!namer/web/templates/components/setupWizard.html
+!namer/web/templates/pages/
+!namer/web/templates/pages/setup.html
 namer/tools
 .flakeheaven_cache
 .ruff_cache
