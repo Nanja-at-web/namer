@@ -6,6 +6,7 @@ import shutil
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from loguru import logger
 
@@ -73,6 +74,20 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
                 self.assertEqual(res.phash, expected_phash)
                 self.assertEqual(res.oshash, expected_oshash)
                 self.assertEqual(res.duration, expected_duration)
+
+    def test_stash_phash_uses_writable_fallback_when_packaged_tools_are_missing(self):
+        with tempfile.TemporaryDirectory(prefix='test') as tmpdir:
+            temp_dir = Path(tmpdir)
+            packaged_tools = temp_dir / 'missing-tools'
+            fallback_tools = temp_dir / 'runtime-tools'
+
+            with mock.patch.object(StashVideoPerceptualHash, '_StashVideoPerceptualHash__packaged_phash_path', packaged_tools), mock.patch.object(
+                StashVideoPerceptualHash, '_StashVideoPerceptualHash__fallback_phash_path', fallback_tools
+            ):
+                generator = StashVideoPerceptualHash()
+
+            self.assertTrue(fallback_tools.is_dir())
+            self.assertFalse(generator.is_available())
 
 
 if __name__ == '__main__':
