@@ -435,6 +435,7 @@ def default_config(user_set: Optional[Path] = None) -> NamerConfig:
     config.read_string(config_str)
     namer_config = from_config(config, NamerConfig())
     namer_config.config_updater = config
+    namer_config.config_file = Path('.namer.cfg').resolve()
 
     user_config = ConfigUpdater(allow_no_value=True)
     cfg_paths = [user_set, os.environ.get('NAMER_CONFIG')]
@@ -451,6 +452,8 @@ def default_config(user_set: Optional[Path] = None) -> NamerConfig:
 
         if file.is_file():
             user_config.read(file, encoding='UTF-8')
+            namer_config.config_file = file.resolve()
+            namer_config.config_updater = user_config
             break
 
     return from_config(user_config, namer_config)
