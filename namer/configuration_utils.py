@@ -184,7 +184,7 @@ def from_path(value: Optional[Path]) -> str:
 
 
 def to_regex_list(value: Optional[str]) -> List[Pattern]:
-    return [re.compile(x.strip()) for x in value.split(',')] if value else []
+    return [re.compile(x.strip(), re.IGNORECASE) for x in value.split(',')] if value else []
 
 
 def from_regex_list(value: Optional[List[Pattern]]) -> str:
@@ -272,6 +272,13 @@ field_info: Dict[str, Tuple[str, Optional[Callable[[Optional[str]], Any]], Optio
     'override_tpdb_address': ('namer', None, None),
     'plex_hack': ('namer', to_bool, from_bool),
     'path_cleanup': ('namer', to_bool, from_bool),
+    'cleanup_enabled': ('matching', to_bool, from_bool),
+    'cleanup_preserve_original': ('matching', to_bool, from_bool),
+    'cleanup_normalize_separators': ('matching', to_bool, from_bool),
+    'cleanup_remove_regex': ('matching', to_regex_list, from_regex_list),
+    'allow_text_similarity_auto_write': ('matching', to_bool, from_bool),
+    'review_database_enabled': ('review', to_bool, from_bool),
+    'review_database_path': ('review', to_path, from_path),
     'search_phash': ('Phash', to_bool, from_bool),
     'send_phash': ('Phash', to_bool, from_bool),
     'use_alt_phash_tool': ('Phash', to_bool, from_bool),

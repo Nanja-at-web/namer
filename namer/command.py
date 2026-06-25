@@ -20,6 +20,7 @@ from namer.configuration import NamerConfig
 from namer.configuration_utils import default_config
 from namer.ffmpeg import FFProbeResults
 from namer.fileinfo import FileInfo, parse_file_name
+from namer.filename_cleanup import cleanup_filename_for_matching
 
 
 # noinspection PyDataclass
@@ -47,6 +48,14 @@ class Command:
     parsed_file: Optional[FileInfo] = None
     """
     The parsed file name.
+    """
+    original_parse_name: Optional[str] = None
+    """
+    The real file or directory name selected for parsing before any internal cleanup.
+    """
+    match_parse_name: Optional[str] = None
+    """
+    The internal file name passed to the parser and matcher.
     """
 
     inplace: bool = False
@@ -352,7 +361,17 @@ def __exact_command(target_movie_file: Path, target_dir: Optional[Path], config:
         name = target_dir.name + target_movie_file.suffix
         parsed_dir_name = True
 
-    command.parsed_file = parse_file_name(name, config)
+    command.original_parse_name = name
+    command.match_parse_name = name
+    if config.cleanup_enabled:
+        command.match_parse_name = cleanup_filename_for_matching(name, config.cleanup_remove_regex, config.cleanup_normalize_separators)
+        if command.match_parse_name != name:
+            logger.debug('Using cleaned matching name "{}" for original "{}"', command.match_parse_name, name)
+
+    command.parsed_file = parse_file_name(command.match_parse_name, config)
+    if command.parsed_file and config.cleanup_enabled and config.cleanup_preserve_original:
+        command.parsed_file.source_file_name = name
+        command.parsed_file.source_file_stem = Path(name).stem
     command.parsed_dir_name = parsed_dir_name
 
     return command

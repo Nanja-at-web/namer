@@ -155,6 +155,33 @@ override_tpdb_address =
 # "ffmpeg -i input.mkv -c copy output.<type>"
 convert_container_to =
 
+[matching]
+
+# Build a cleaned internal filename for parsing and matching without renaming the original file.
+# This is a search aid only. It must not be treated as verified metadata by itself.
+cleanup_enabled = False
+
+# Keep source_file_name/source_file_stem pointed at the real original name after cleanup parsing.
+cleanup_preserve_original = True
+
+# Normalize dots/underscores and spacing in the internal matching filename.
+cleanup_normalize_separators = True
+
+# Comma separated regexes removed from the internal matching filename before parsing.
+# Default examples remove hashtags and common release/video markers from the search text.
+cleanup_remove_regex = \s*#[A-Za-z0-9_-]+, \b(?:web[-_. ]?dl|webrip|hdrip|bdrip|dvdrip|x264|x265|h264|h265|hevc|avc|aac|dts|rarbg)\b
+
+# Safety guard for future matching work. Leave false unless a later implementation explicitly supports it.
+allow_text_similarity_auto_write = False
+
+[review]
+
+# Store processing outcomes and top candidates in a local SQLite database for manual review.
+review_database_enabled = False
+
+# Local review database path.
+review_database_path = ./database/review.sqlite
+
 [Phash]
 # Calculate and use phashes in search for matches
 search_phash = True

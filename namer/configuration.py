@@ -275,6 +275,41 @@ class NamerConfig:
     Cleanup final filename
     """
 
+    cleanup_enabled: bool = False
+    """
+    Build a cleaned internal filename for matching without renaming the original file.
+    """
+
+    cleanup_preserve_original: bool = True
+    """
+    Keep source_file_name/source_file_stem pointed at the real original name after cleanup parsing.
+    """
+
+    cleanup_normalize_separators: bool = True
+    """
+    Normalize common separators in the internal matching filename.
+    """
+
+    cleanup_remove_regex: List[Pattern]
+    """
+    Regexes removed from the internal matching filename before parsing.
+    """
+
+    allow_text_similarity_auto_write: bool = False
+    """
+    Reserved safety switch. Text similarity alone should not be allowed to create trusted metadata.
+    """
+
+    review_database_enabled: bool = False
+    """
+    Store processing outcomes in a small local review database.
+    """
+
+    review_database_path: Path = Path(tempfile.gettempdir()) / 'namer' / 'review.sqlite'
+    """
+    SQLite database used for local review of failed or uncertain matches.
+    """
+
     override_tpdb_address: str = 'https://api.theporndb.net'
     """
     Used only for testing, can override the location of the porn database - usually to point at a locally
@@ -514,6 +549,8 @@ class NamerConfig:
             self.set_gid = os.getgid()
 
         self.re_cleanup = [re.compile(rf'\b{regex}\b', re.IGNORECASE) for regex in database.re_cleanup]
+        if not hasattr(self, 'cleanup_remove_regex'):
+            self.cleanup_remove_regex = []
 
         if hasattr(self, 'watch_dir'):
             self.watch_dir = self.watch_dir.resolve()
@@ -592,6 +629,17 @@ class NamerConfig:
                 'preserve_duplicates': self.preserve_duplicates,
                 'max_desired_resolutions': self.max_desired_resolutions,
                 'desired_codec': self.desired_codec,
+            },
+            'Matching Config': {
+                'cleanup_enabled': self.cleanup_enabled,
+                'cleanup_preserve_original': self.cleanup_preserve_original,
+                'cleanup_normalize_separators': self.cleanup_normalize_separators,
+                'cleanup_remove_regex': [regex.pattern for regex in self.cleanup_remove_regex],
+                'allow_text_similarity_auto_write': self.allow_text_similarity_auto_write,
+            },
+            'Review Config': {
+                'review_database_enabled': self.review_database_enabled,
+                'review_database_path': str(self.review_database_path),
             },
             'Tagging Config': {
                 'write_nfo': self.write_nfo,

@@ -29,6 +29,7 @@ from namer.metadataapi import get_complete_metadataapi_net_fileinfo, get_image, 
 from namer.moviexml import parse_movie_xml_file, write_nfo
 from namer.mutagen import update_mp4_file
 from namer.name_formatter import PartialFormatter
+from namer.review_db import record_review_item
 from namer.videophash import PerceptualHash, return_perceptual_hash
 
 DESCRIPTION = """
@@ -214,6 +215,8 @@ def process_file(command: Command) -> Optional[Command]:
                 failed = move_command_files(command, command.config.failed_dir)
                 if failed is not None and search_results is not None and failed.config.write_namer_failed_log:
                     write_log_file(failed.target_movie_file, search_results, failed.config)
+                if failed is not None:
+                    record_review_item(command, 'manual_review', 'manual_mode', search_results, phash, failed.target_movie_file)
             else:
                 ffprobe_results = command.config.ffmpeg.ffprobe(command.target_movie_file)
                 if ffprobe_results:
@@ -244,12 +247,15 @@ def process_file(command: Command) -> Optional[Command]:
                 tag_in_place(target.target_movie_file, command.config, new_metadata, ffprobe_results)
                 add_extra_artifacts(target.target_movie_file, new_metadata, search_results, phash, command.config)
                 send_webhook_notification(target.target_movie_file, command.config)
+                record_review_item(command, 'matched', '', search_results, phash, target.target_movie_file)
                 logger.success('Done processing file: {}, moved to {}', command.target_movie_file, target.target_movie_file)
                 return target
         elif command.inplace is False:
             failed = move_command_files(command, command.config.failed_dir)
             if failed is not None and search_results is not None and failed.config.write_namer_failed_log:
                 write_log_file(failed.target_movie_file, search_results, failed.config)
+            if failed is not None:
+                record_review_item(command, 'manual_review', 'no_verified_match', search_results, phash, failed.target_movie_file)
 
     return None
 

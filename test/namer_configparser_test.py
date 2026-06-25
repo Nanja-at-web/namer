@@ -35,8 +35,12 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
         namer_config = from_config(updater, NamerConfig())
         namer_config.config_updater = updater
         namer_config.sites_with_no_date_info = ['badsite']
+        namer_config.cleanup_enabled = True
+        namer_config.review_database_enabled = True
         ini_content = to_ini(namer_config)
         self.assertIn('sites_with_no_date_info = badsite', ini_content.splitlines())
+        self.assertIn('cleanup_enabled = True', ini_content.splitlines())
+        self.assertIn('review_database_enabled = True', ini_content.splitlines())
 
         updated = ConfigUpdater(allow_no_value=True)
         lines = ini_content.splitlines()
