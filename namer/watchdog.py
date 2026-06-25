@@ -341,10 +341,12 @@ def create_watcher(namer_watchdog_config: NamerConfig) -> MovieWatcher:
         sys.exit(-1)
 
     user = get_user_info(namer_watchdog_config)
-    if not user:
+    if user:
+        logger.info('Logged as {name} ({id})'.format(**user))
+    elif namer_watchdog_config.web:
+        logger.warning('Metadata API authentication failed. Starting WebUI anyway; set porndb_token before processing files.')
+    else:
         sys.exit(-1)
-
-    logger.info('Logged as {name} ({id})'.format(**user))
 
     if namer_watchdog_config.retry_time:
         schedule.every().day.at(namer_watchdog_config.retry_time).do(lambda: retry_failed(namer_watchdog_config))
