@@ -15,7 +15,7 @@ import jsonpickle
 import orjson
 from werkzeug.routing import Rule
 
-from namer.command import Command, gather_target_files_from_dir, is_interesting_movie, is_relative_to
+from namer.command import Command, failed_log_file_for_movie, gather_target_files_from_dir, is_interesting_movie, is_relative_to
 from namer.comparison_results import ComparisonResults, SceneType
 from namer.configuration import NamerConfig
 from namer.fileinfo import FileInfo, parse_file_name
@@ -209,7 +209,7 @@ def delete_file(file_name_str: str, config: NamerConfig) -> bool:
         target_name = config.failed_dir / Path(file_name_str).parts[0]
         shutil.rmtree(target_name)
     else:
-        log_file = config.failed_dir / (file_name.stem + '_namer.json.gz')
+        log_file = failed_log_file_for_movie(file_name)
         if log_file.is_file():
             log_file.unlink()
 
@@ -220,7 +220,7 @@ def delete_file(file_name_str: str, config: NamerConfig) -> bool:
 
 def read_failed_log_file(name: str, config: NamerConfig) -> Optional[ComparisonResults]:
     file = config.failed_dir / name
-    file = file.parent / (file.stem + '_namer.json.gz')
+    file = failed_log_file_for_movie(file)
 
     res: Optional[ComparisonResults] = None
     if file.is_file():

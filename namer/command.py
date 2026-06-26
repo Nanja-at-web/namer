@@ -4,6 +4,7 @@ Tools for working with files and directories in namer.
 
 import argparse
 import gzip
+import hashlib
 import os
 import shutil
 import sys
@@ -21,6 +22,9 @@ from namer.configuration_utils import default_config
 from namer.ffmpeg import FFProbeResults
 from namer.fileinfo import FileInfo, parse_file_name
 from namer.filename_cleanup import cleanup_filename_for_matching
+
+FAILED_LOG_SUFFIX = '_namer.json.gz'
+MAX_FILENAME_BYTES = 255
 
 
 # noinspection PyDataclass
@@ -107,6 +111,32 @@ def move_command_files(target: Optional[Command], new_target: Path, is_auto: boo
     return output
 
 
+def _truncate_utf8(value: str, max_bytes: int) -> str:
+    encoded = value.encode('utf-8')
+    if len(encoded) <= max_bytes:
+        return value
+
+    truncated = encoded[:max_bytes]
+    while truncated:
+        try:
+            return truncated.decode('utf-8')
+        except UnicodeDecodeError:
+            truncated = truncated[:-1]
+
+    return ''
+
+
+def failed_log_file_for_movie(movie_file: Path) -> Path:
+    log_name = movie_file.stem + FAILED_LOG_SUFFIX
+    if len(log_name.encode('utf-8')) <= MAX_FILENAME_BYTES:
+        return movie_file.with_name(log_name)
+
+    digest = hashlib.sha1(movie_file.name.encode('utf-8')).hexdigest()[:12]
+    suffix = f'_{digest}{FAILED_LOG_SUFFIX}'
+    stem = _truncate_utf8(movie_file.stem, MAX_FILENAME_BYTES - len(suffix.encode('utf-8')))
+    return movie_file.with_name(stem + suffix)
+
+
 def write_log_file(movie_file: Optional[Path], match_attempts: Optional[ComparisonResults], namer_config: NamerConfig) -> Optional[Path]:
     """
     Given porndb scene results sorted by how closely they match a file,  write the contents
@@ -114,7 +144,7 @@ def write_log_file(movie_file: Optional[Path], match_attempts: Optional[Comparis
     """
     log_name = None
     if movie_file:
-        log_name = movie_file.with_name(movie_file.stem + '_namer.json.gz')
+        log_name = failed_log_file_for_movie(movie_file)
         logger.info('Writing log to {}', log_name)
         with open(log_name, 'wb') as log_file:
             if match_attempts:

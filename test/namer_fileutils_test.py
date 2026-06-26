@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 from loguru import logger
 
-from namer.command import main, set_permissions
+from namer.command import failed_log_file_for_movie, main, set_permissions
 from test import utils
 from test.utils import environment, sample_config
 
@@ -43,6 +43,20 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
             shutil.copy(test_dir / 'Site.22.01.01.painful.pun.XXX.720p.xpost.mp4', target_file)
             main(arg_list=['-f', str(target_file), '-c', str(config.config_file)])
             self.assertIn('site: EvilAngel', mock_stdout.getvalue())
+
+    def test_failed_log_file_for_movie_truncates_long_names(self):
+        """
+        Failed log names must fit common filesystem component limits.
+        """
+        long_stem = 'Rachael Cavalli - ' + ('Very Long Scene Name Хустлер ' * 20)
+        movie_file = Path('/tmp') / f'{long_stem}.mp4'
+        log_file = failed_log_file_for_movie(movie_file)
+        self.assertLessEqual(len(log_file.name.encode('utf-8')), 255)
+        self.assertTrue(log_file.name.endswith('_namer.json.gz'))
+
+    def test_failed_log_file_for_movie_keeps_short_names(self):
+        movie_file = Path('/tmp/Rachael Cavalli - Scene.mp4')
+        self.assertEqual(failed_log_file_for_movie(movie_file).name, 'Rachael Cavalli - Scene_namer.json.gz')
 
     def test_set_permission(self):
         """
