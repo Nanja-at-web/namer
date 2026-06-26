@@ -1,0 +1,75 @@
+name: Docker image
+
+on:
+  push:
+    branches:
+      - codex/matching-cleanup-review-db
+    paths:
+      - Dockerfile
+      - package.json
+      - pnpm-lock.yaml
+      - pyproject.toml
+      - poetry.lock
+      - webpack*.js
+      - namer/**
+      - src/**
+      - test/**
+      - videohashes/**
+      - .github/workflows/docker-image.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: docker-image-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE_NAME: ghcr.io/nanja-at-web/namer
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set build metadata
+        id: meta
+        shell: bash
+        run: |
+          version="v$(grep -m1 'version = ' pyproject.toml | sed 's/.* = //' | sed 's/"//g' | tr -d '[:space:]')"
+          branch_tag="${GITHUB_REF_NAME//\//-}"
+          echo "build_date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
+          echo "git_hash=$(git rev-parse --verify HEAD)" >> "$GITHUB_OUTPUT"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "branch_tag=${branch_tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          build-args: |
+            BUILD_DATE=${{ steps.meta.outputs.build_date }}
+            GIT_HASH=${{ steps.meta.outputs.git_hash }}
+            PROJECT_VERSION=${{ steps.meta.outputs.version }}
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.branch_tag }}
+            ${{ env.IMAGE_NAME }}:matching-cleanup-review-db
+            ${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
