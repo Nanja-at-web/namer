@@ -18,6 +18,23 @@ from namer.comparison_results import ComparisonResults
 from namer.videophash import PerceptualHash
 
 
+def _json_default(value: Any) -> Any:
+    if isinstance(value, Path):
+        return str(value)
+
+    if hasattr(value, 'item'):
+        return value.item()
+
+    if isinstance(value, (set, tuple)):
+        return list(value)
+
+    raise TypeError
+
+
+def _json_dumps(value: Any) -> str:
+    return orjson.dumps(value, option=orjson.OPT_SERIALIZE_NUMPY, default=_json_default).decode('UTF-8')
+
+
 def _connect(database_path: Path) -> sqlite3.Connection:
     database_path.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(database_path)
@@ -78,7 +95,7 @@ def _candidate_summary(search_results: Optional[ComparisonResults]) -> str:
             }
         )
 
-    return orjson.dumps(candidates).decode('UTF-8')
+    return _json_dumps(candidates)
 
 
 def record_review_item(
