@@ -29,6 +29,26 @@ def test_cleanup_filename_for_matching_preserves_word_hyphens():
     assert cleaned == 'EvilAngel 22 01 03 Carmela Clutch Fabulous Anal 3-Way XXX.mp4'
 
 
+def test_cleanup_filename_for_matching_removes_hyphenated_release_blocks():
+    config = sample_config()
+    cleaned = cleanup_filename_for_matching(
+        'EvilAngel.22.01.03.Carmela.Clutch.Fabulous.Anal.3-Way.XXX.WEBDL-x264-1080p-RARBG.mp4',
+        config.cleanup_remove_regex,
+    )
+
+    assert cleaned == 'EvilAngel 22 01 03 Carmela Clutch Fabulous Anal 3-Way XXX.mp4'
+
+
+def test_cleanup_filename_for_matching_removes_release_block_before_title():
+    config = sample_config()
+    cleaned = cleanup_filename_for_matching(
+        'WEBDL-x265-2160p-EvilAngel.22.01.03.Carmela.Clutch.Fabulous.Anal.3-Way.XXX.mp4',
+        config.cleanup_remove_regex,
+    )
+
+    assert cleaned == 'EvilAngel 22 01 03 Carmela Clutch Fabulous Anal 3-Way XXX.mp4'
+
+
 def test_make_command_uses_cleaned_name_but_preserves_original(tmp_path: Path):
     config = sample_config()
     config.cleanup_enabled = True
