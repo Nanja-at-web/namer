@@ -19,6 +19,16 @@ def test_cleanup_filename_for_matching_removes_hash_tags_and_release_markers():
     assert cleaned == 'EvilAngel 22 01 03 Carmela Clutch Fabulous Anal XXX.mp4'
 
 
+def test_cleanup_filename_for_matching_preserves_word_hyphens():
+    config = sample_config()
+    cleaned = cleanup_filename_for_matching(
+        'EvilAngel.22.01.03.Carmela.Clutch.Fabulous.Anal.3-Way.XXX.x264.mp4',
+        config.cleanup_remove_regex,
+    )
+
+    assert cleaned == 'EvilAngel 22 01 03 Carmela Clutch Fabulous Anal 3-Way XXX.mp4'
+
+
 def test_make_command_uses_cleaned_name_but_preserves_original(tmp_path: Path):
     config = sample_config()
     config.cleanup_enabled = True

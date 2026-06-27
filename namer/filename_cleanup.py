@@ -8,7 +8,6 @@ from typing import Iterable, Pattern
 
 SEPARATOR_RE = re.compile(r'[._]+')
 WHITESPACE_RE = re.compile(r'\s+')
-DASH_RE = re.compile(r'\s*-\s*')
 
 
 def cleanup_filename_for_matching(filename: str, cleanup_regexes: Iterable[Pattern], normalize_separators: bool = True) -> str:
@@ -25,7 +24,6 @@ def cleanup_filename_for_matching(filename: str, cleanup_regexes: Iterable[Patte
 
     if normalize_separators:
         cleaned = SEPARATOR_RE.sub(' ', cleaned)
-        cleaned = DASH_RE.sub(' - ', cleaned)
 
     cleaned = WHITESPACE_RE.sub(' ', cleaned).strip(' -._')
     if not cleaned:
