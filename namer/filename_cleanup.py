@@ -8,6 +8,7 @@ from typing import Iterable, Pattern
 
 SEPARATOR_RE = re.compile(r'[._]+')
 WHITESPACE_RE = re.compile(r'\s+')
+EMPTY_BRACKETS_RE = re.compile(r'[\[\(\{]\s*[\]\)\}]')
 RELEASE_TOKEN_RE = re.compile(
     r'(?i)(?<![a-z0-9])(?:'
     r'[0-9]{3,4}p|[0-9]k|[0-9]{2,3}fps|'
@@ -32,10 +33,12 @@ def cleanup_filename_for_matching(filename: str, cleanup_regexes: Iterable[Patte
         cleaned = cleanup_regex.sub(' ', cleaned)
 
     cleaned = RELEASE_TOKEN_RE.sub(' ', cleaned)
+    cleaned = EMPTY_BRACKETS_RE.sub(' ', cleaned)
 
     if normalize_separators:
         cleaned = SEPARATOR_RE.sub(' ', cleaned)
 
+    cleaned = EMPTY_BRACKETS_RE.sub(' ', cleaned)
     cleaned = ORPHAN_HYPHEN_RE.sub(' ', cleaned)
     cleaned = WHITESPACE_RE.sub(' ', cleaned).strip(' -._')
     if not cleaned:

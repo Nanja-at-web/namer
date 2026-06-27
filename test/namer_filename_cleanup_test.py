@@ -49,6 +49,16 @@ def test_cleanup_filename_for_matching_removes_release_block_before_title():
     assert cleaned == 'EvilAngel 22 01 03 Carmela Clutch Fabulous Anal 3-Way XXX.mp4'
 
 
+def test_cleanup_filename_for_matching_removes_empty_brackets_after_release_tokens():
+    config = sample_config()
+    cleaned = cleanup_filename_for_matching(
+        'EvilAngel.22.01.03.Carmela.Clutch.Fabulous.Anal.3-Way.XXX.1080p.HEVC.x265.PRT[XvX]-xpost.mp4',
+        config.cleanup_remove_regex,
+    )
+
+    assert cleaned == 'EvilAngel 22 01 03 Carmela Clutch Fabulous Anal 3-Way XXX.mp4'
+
+
 def test_make_command_uses_cleaned_name_but_preserves_original(tmp_path: Path):
     config = sample_config()
     config.cleanup_enabled = True
