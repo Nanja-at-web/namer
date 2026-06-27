@@ -275,7 +275,7 @@ class NamerConfig:
     Cleanup final filename
     """
 
-    cleanup_enabled: bool = False
+    cleanup_enabled: bool = True
     """
     Build a cleaned internal filename for matching without renaming the original file.
     """

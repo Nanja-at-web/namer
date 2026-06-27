@@ -47,6 +47,7 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
         self.assertEqual(config.write_namer_log, False)
         self.assertEqual(config.enable_metadataapi_genres, False)
         self.assertEqual(config.default_genre, 'Adult')
+        self.assertEqual(config.cleanup_enabled, True)
         self.assertFalse(hasattr(config, 'dest_dir'))
         self.assertFalse(hasattr(config, 'failed_dir'))
         self.assertEqual(config.min_file_size, 300)

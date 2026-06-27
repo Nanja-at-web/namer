@@ -159,7 +159,7 @@ convert_container_to =
 
 # Build a cleaned internal filename for parsing and matching without renaming the original file.
 # This is a search aid only. It must not be treated as verified metadata by itself.
-cleanup_enabled = False
+cleanup_enabled = True
 
 # Keep source_file_name/source_file_stem pointed at the real original name after cleanup parsing.
 cleanup_preserve_original = True
