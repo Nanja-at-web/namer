@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 from loguru import logger
 
-from namer.command import failed_log_file_for_movie, main, set_permissions
+from namer.command import failed_log_file_for_movie, main, non_conflicting_path, set_permissions
 from test import utils
 from test.utils import environment, sample_config
 
@@ -57,6 +57,17 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
     def test_failed_log_file_for_movie_keeps_short_names(self):
         movie_file = Path('/tmp/Rachael Cavalli - Scene.mp4')
         self.assertEqual(failed_log_file_for_movie(movie_file).name, 'Rachael Cavalli - Scene_namer.json.gz')
+
+    def test_non_conflicting_path_adds_infix(self):
+        with tempfile.TemporaryDirectory(prefix='test') as tmpdir:
+            temp_dir = Path(tmpdir)
+            target = temp_dir / 'extra.nfo'
+            target.write_text('old', encoding='utf-8')
+
+            self.assertEqual(non_conflicting_path(target), temp_dir / 'extra(1).nfo')
+
+            (temp_dir / 'extra(1).nfo').write_text('older', encoding='utf-8')
+            self.assertEqual(non_conflicting_path(target), temp_dir / 'extra(2).nfo')
 
     def test_set_permission(self):
         """

@@ -239,6 +239,18 @@ def selected_best_movie(movies: List[str], config: NamerConfig) -> Optional[Path
     return None
 
 
+def non_conflicting_path(path: Path) -> Path:
+    if not path.exists():
+        return path
+
+    infix = 1
+    while True:
+        candidate = path.with_name(f'{path.stem}({infix}){path.suffix}')
+        if not candidate.exists():
+            return candidate
+        infix += 1
+
+
 def move_to_final_location(command: Command, new_metadata: LookedUpFileInfo) -> Command:
     """
     Moves a file or directory to its final location after verifying there is no collision.
@@ -316,7 +328,7 @@ def move_to_final_location(command: Command, new_metadata: LookedUpFileInfo) -> 
         # move directory contents
         for file in command.target_directory.iterdir():
             if file != command.target_movie_file:
-                dest_file = containing_dir / file.name
+                dest_file = non_conflicting_path(containing_dir / file.name)
                 dest_file.parent.mkdir(parents=True, exist_ok=True)
                 shutil.move(file, dest_file)
 
