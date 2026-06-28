@@ -368,6 +368,11 @@ class NamerConfig:
     Calculate and use PHASHes in search for matches
     """
 
+    phash_match_distance: int = 4
+    """
+    Maximum phash hamming distance accepted as a video fingerprint match.
+    """
+
     send_phash: bool = False
     """
     If match was made via name, or user selection and not PHASH, send the PHASH (only functions if search_phash is true)
@@ -618,6 +623,7 @@ class NamerConfig:
             },
             'Phash': {
                 'search_phash': self.search_phash,
+                'phash_match_distance': self.phash_match_distance,
                 'send_phash': self.send_phash,
                 'use_alt_phash_tool': self.use_alt_phash_tool,
                 'max_ffmpeg_workers': self.max_ffmpeg_workers,

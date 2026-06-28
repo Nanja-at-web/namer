@@ -186,6 +186,10 @@ review_database_path = ./database/review.sqlite
 # Calculate and use phashes in search for matches
 search_phash = True
 
+# Maximum phash hamming distance accepted as a video fingerprint match.
+# 0 means exact phash only. 4 is conservative for near-identical video fingerprints.
+phash_match_distance = 4
+
 # Should phashes be sent to tpdb if no phash match was found but a name match was.
 # Requires search_phash be true or is ignored.
 send_phash = False

@@ -151,7 +151,7 @@ def __evaluate_match(name_parts: Optional[FileInfo], looked_up: LookedUpFileInfo
 
 
 def __update_results(results: List[ComparisonResult], name_parts: Optional[FileInfo], namer_config: NamerConfig, skip_date: bool = False, skip_name: bool = False, scene_type: SceneType = SceneType.SCENE, phash: Optional[PerceptualHash] = None):
-    if not results or not results[0].is_match():
+    if not results or not results[0].is_match(target_distance=namer_config.phash_match_distance):
         for match_attempt in __get_metadataapi_net_fileinfo(name_parts, namer_config, skip_date, skip_name, scene_type=scene_type, phash=phash):
             if match_attempt.uuid not in [res.looked_up.uuid for res in results]:
                 result: ComparisonResult = __evaluate_match(name_parts, match_attempt, namer_config, phash)
@@ -190,7 +190,7 @@ def __metadata_api_lookup(name_parts: FileInfo, namer_config: NamerConfig, phash
 
     results: List[ComparisonResult] = []
     results: List[ComparisonResult] = __metadata_api_lookup_type(results, name_parts, namer_config, scene_type, phash)
-    if not results or not results[0].is_match():
+    if not results or not results[0].is_match(target_distance=namer_config.phash_match_distance):
         scene_type = SceneType.MOVIE if scene_type == SceneType.SCENE else SceneType.SCENE
         results: List[ComparisonResult] = __metadata_api_lookup_type(results, name_parts, namer_config, scene_type, phash)
 
@@ -201,7 +201,7 @@ def __match_weight(result: ComparisonResult) -> float:
     value = 0.00
     if result.phash_distance is not None:
         logger.debug("Phash match with '{} - {} - {}'", result.looked_up.site, result.looked_up.date, result.looked_up.name)
-        value += min(1000 - result.phash_distance * 125, 0)
+        value += max(1000 - result.phash_distance * 125, 0)
         if result.site_match:
             value += 100
         if result.date_match:
@@ -549,7 +549,7 @@ def match(file_name_parts: Optional[FileInfo], namer_config: NamerConfig, phash:
     # Works around the porndb not returning all info on search queries by looking up the full data
     # with the uuid of the best match.
     for comparison_result in comparison_results:
-        if comparison_result.is_match():
+        if comparison_result.is_match(target_distance=namer_config.phash_match_distance):
             uuid = comparison_results[0].looked_up.uuid
             if uuid:
                 file_infos: Optional[LookedUpFileInfo] = get_complete_metadataapi_net_fileinfo(file_name_parts, uuid, namer_config)

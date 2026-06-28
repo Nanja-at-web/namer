@@ -12,7 +12,7 @@ from loguru import logger
 from namer.configuration import NamerConfig
 from namer.configuration_utils import verify_configuration
 from namer.name_formatter import PartialFormatter
-from namer.comparison_results import Performer
+from namer.comparison_results import ComparisonResult, ComparisonResults, LookedUpFileInfo, Performer
 from test import utils
 
 
@@ -48,6 +48,7 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
         self.assertEqual(config.enable_metadataapi_genres, False)
         self.assertEqual(config.default_genre, 'Adult')
         self.assertEqual(config.cleanup_enabled, True)
+        self.assertEqual(config.phash_match_distance, 4)
         self.assertFalse(hasattr(config, 'dest_dir'))
         self.assertFalse(hasattr(config, 'failed_dir'))
         self.assertEqual(config.min_file_size, 300)
@@ -57,6 +58,28 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
             self.assertEqual(config.set_gid, os.getgid())
             self.assertEqual(config.set_dir_permissions, 775)
             self.assertEqual(config.set_file_permissions, 664)
+
+    def test_phash_match_distance_is_configurable(self):
+        looked_up = LookedUpFileInfo()
+        result = ComparisonResult(
+            name='Wrong text',
+            name_match=10.0,
+            site_match=False,
+            date_match=False,
+            name_parts=None,
+            looked_up=looked_up,
+            phash_distance=4,
+            phash_duration=True,
+        )
+        results = ComparisonResults([result], None)
+
+        self.assertFalse(result.is_match())
+        self.assertTrue(result.is_match(target_distance=4))
+        self.assertIsNone(results.get_match())
+        self.assertEqual(results.get_match(target_distance=4), result)
+
+        result.phash_duration = False
+        self.assertFalse(result.is_match(target_distance=4))
 
     def test_formatter(self):
         """

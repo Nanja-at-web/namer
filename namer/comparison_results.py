@@ -352,7 +352,7 @@ class ComparisonResult:
         """
         Returns true if match is a phash match.
         """
-        return self.phash_distance is not None and self.phash_distance <= target_distance and self.phash_duration is not None
+        return self.phash_distance is not None and self.phash_distance <= target_distance and self.phash_duration is True
 
     def is_match(self, target: float = 94.9, target_distance: int = 0) -> bool:
         """
@@ -386,9 +386,9 @@ class ComparisonResults:
     results: List[ComparisonResult]
     fileinfo: Optional[FileInfo]
 
-    def get_match(self) -> Optional[ComparisonResult]:
+    def get_match(self, target_distance: int = 0) -> Optional[ComparisonResult]:
         match = None
-        if self.results and self.results[0].is_match():
+        if self.results and self.results[0].is_match(target_distance=target_distance):
             # verify the match isn't covering over a better namer match, if it is, no match shall be made
             # implying that the site and date on the name of the file may be wrong.   leave it for the user
             # to sort it out.
@@ -396,8 +396,11 @@ class ComparisonResults:
             for potential in self.results[1:]:
                 # Now that matches are unique in the list, don't match if there are multiple
                 if match:
-                    if not match.is_super_match() and potential.is_match() or potential.is_super_match():  # noqa: SIM114
+                    match_is_super = match.is_super_match(target_distance=target_distance)
+                    potential_is_match = potential.is_match(target_distance=target_distance)
+                    potential_is_super = potential.is_super_match(target_distance=target_distance)
+                    if not match_is_super and potential_is_match or potential_is_super:  # noqa: SIM114
                         match = None
-                    elif not match.is_super_match() and not match.is_phash_match() and potential.name_match > match.name_match:
+                    elif not match_is_super and not match.is_phash_match(target_distance=target_distance) and potential.name_match > match.name_match:
                         match = None
         return match
