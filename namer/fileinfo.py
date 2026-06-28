@@ -140,35 +140,45 @@ def parse_file_name(filename: str, namer_config: NamerConfig) -> FileInfo:
     regex = parser_config_to_regex(namer_config.name_parser)
     path = PurePath(filename)
     fallback_date = _find_fallback_date_match(path.stem)
-    parse_path = PurePath(f'{_remove_fallback_date(path.stem)}{path.suffix}') if fallback_date else path
     file_name_parts = FileInfo()
     file_name_parts.extension = path.suffix[1:]
-    match = regex.search(parse_path.name)
+    match = regex.search(filename)
     if match:
-        if match.groupdict().get('year'):
-            prefix = '20' if len(match.group('year')) == 2 else ''
-            file_name_parts.date = prefix + match.group('year') + '-' + match.group('month') + '-' + match.group('day')
-
-        if match.groupdict().get('name'):
-            file_name_parts.name = name_cleaner(match.group('name'), namer_config.re_cleanup)
-
-        if match.groupdict().get('site'):
-            file_name_parts.site = match.group('site')
-
-        if match.groupdict().get('trans'):
-            trans = match.group('trans')
-            file_name_parts.trans = bool(trans and trans.strip().upper() == 'TS')
-
-        file_name_parts.extension = match.group('ext')
-        file_name_parts.source_file_name = filename
-        file_name_parts.source_file_stem = path.stem
+        _apply_fileinfo_match(file_name_parts, match, namer_config, filename, path.stem)
     else:
         logger.debug('Could not parse target name which may be a file (or directory) name depending on settings and input: {}', filename)
 
-    if not file_name_parts.date and fallback_date:
+    if fallback_date and (not file_name_parts.date or _site_looks_overparsed(file_name_parts.site)):
+        parse_path = PurePath(f'{_remove_fallback_date(path.stem)}{path.suffix}')
+        fallback_match = regex.search(parse_path.name)
+        if fallback_match:
+            _apply_fileinfo_match(file_name_parts, fallback_match, namer_config, filename, path.stem)
         file_name_parts.date = _format_date(fallback_date.group('year'), fallback_date.group('month'), fallback_date.group('day'))
 
     return file_name_parts
+
+
+def _apply_fileinfo_match(file_name_parts: FileInfo, match: re.Match, namer_config: NamerConfig, source_file_name: str, source_file_stem: str) -> None:
+    if match.groupdict().get('year'):
+        file_name_parts.date = _format_date(match.group('year'), match.group('month'), match.group('day'))
+
+    if match.groupdict().get('name'):
+        file_name_parts.name = name_cleaner(match.group('name'), namer_config.re_cleanup)
+
+    if match.groupdict().get('site'):
+        file_name_parts.site = match.group('site')
+
+    if match.groupdict().get('trans'):
+        trans = match.group('trans')
+        file_name_parts.trans = bool(trans and trans.strip().upper() == 'TS')
+
+    file_name_parts.extension = match.group('ext')
+    file_name_parts.source_file_name = source_file_name
+    file_name_parts.source_file_stem = source_file_stem
+
+
+def _site_looks_overparsed(site: Optional[str]) -> bool:
+    return bool(site and '.' in site)
 
 
 def find_fallback_date(text: str) -> Optional[str]:
