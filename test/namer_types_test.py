@@ -13,6 +13,7 @@ from namer.configuration import NamerConfig
 from namer.configuration_utils import verify_configuration
 from namer.name_formatter import PartialFormatter
 from namer.comparison_results import ComparisonResult, ComparisonResults, LookedUpFileInfo, Performer
+from namer.fileinfo import FileInfo
 from test import utils
 
 
@@ -80,6 +81,96 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
 
         result.phash_duration = False
         self.assertFalse(result.is_match(target_distance=4))
+
+    def test_no_date_text_match_requires_opt_in_and_unambiguous_site_title(self):
+        fileinfo = FileInfo()
+        fileinfo.site = 'Site'
+        fileinfo.date = None
+        fileinfo.name = 'Scene Title'
+
+        looked_up = LookedUpFileInfo()
+        result = ComparisonResult(
+            name='Scene Title',
+            name_match=98.0,
+            site_match=True,
+            date_match=False,
+            name_parts=fileinfo,
+            looked_up=looked_up,
+            phash_distance=None,
+            phash_duration=None,
+        )
+        results = ComparisonResults([result], fileinfo)
+
+        self.assertFalse(result.is_match())
+        self.assertIsNone(results.get_match())
+        self.assertEqual(results.get_match(allow_text_similarity_auto_write=True), result)
+
+    def test_no_date_text_match_rejects_close_competing_candidate(self):
+        fileinfo = FileInfo()
+        fileinfo.site = 'Site'
+        fileinfo.date = None
+        fileinfo.name = 'Scene Title'
+
+        looked_up = LookedUpFileInfo()
+        result = ComparisonResult(
+            name='Scene Title',
+            name_match=98.0,
+            site_match=True,
+            date_match=False,
+            name_parts=fileinfo,
+            looked_up=looked_up,
+            phash_distance=None,
+            phash_duration=None,
+        )
+        competitor = ComparisonResult(
+            name='Scene Title 2',
+            name_match=96.0,
+            site_match=True,
+            date_match=False,
+            name_parts=fileinfo,
+            looked_up=looked_up,
+            phash_distance=None,
+            phash_duration=None,
+        )
+        results = ComparisonResults([result, competitor], fileinfo)
+
+        self.assertIsNone(results.get_match(allow_text_similarity_auto_write=True))
+
+    def test_no_date_text_match_rejects_wrong_site_or_existing_source_date(self):
+        no_date = FileInfo()
+        no_date.site = 'Site'
+        no_date.date = None
+        no_date.name = 'Scene Title'
+
+        with_date = FileInfo()
+        with_date.site = 'Site'
+        with_date.date = '2022-01-03'
+        with_date.name = 'Scene Title'
+
+        looked_up = LookedUpFileInfo()
+        wrong_site = ComparisonResult(
+            name='Scene Title',
+            name_match=99.0,
+            site_match=False,
+            date_match=False,
+            name_parts=no_date,
+            looked_up=looked_up,
+            phash_distance=None,
+            phash_duration=None,
+        )
+        date_mismatch = ComparisonResult(
+            name='Scene Title',
+            name_match=99.0,
+            site_match=True,
+            date_match=False,
+            name_parts=with_date,
+            looked_up=looked_up,
+            phash_distance=None,
+            phash_duration=None,
+        )
+
+        self.assertIsNone(ComparisonResults([wrong_site], no_date).get_match(allow_text_similarity_auto_write=True))
+        self.assertIsNone(ComparisonResults([date_mismatch], with_date).get_match(allow_text_similarity_auto_write=True))
 
     def test_formatter(self):
         """

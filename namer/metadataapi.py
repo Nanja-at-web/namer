@@ -213,6 +213,10 @@ def __match_weight(result: ComparisonResult) -> float:
         logger.debug("Name match of {:.2f} with '{} - {} - {}' for name: {}", value, result.looked_up.site, result.looked_up.date, result.looked_up.name, result.name)
         value += 1000.00
         value = (result.name_match + value) if result.name_match else value
+    elif result.is_no_date_text_match(result.name_parts):
+        logger.debug("No-date text match of {:.2f} with '{} - {} - {}' for name: {}", value, result.looked_up.site, result.looked_up.date, result.looked_up.name, result.name)
+        value += 900.00
+        value = (result.name_match + value) if result.name_match else value
 
     logger.debug('Match was {:.2f} for {}', value, result.name)
 
@@ -618,7 +622,7 @@ def main(args_list: List[str]):
         results = match(file_name.parsed_file, config)
 
     if results:
-        matched = results.get_match()
+        matched = results.get_match(config.phash_match_distance, config.allow_text_similarity_auto_write)
         if matched:
             if file_name.input_file.is_file():
                 ffprobe_results = config.ffmpeg.ffprobe(file_name.input_file)

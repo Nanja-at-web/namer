@@ -297,7 +297,7 @@ class NamerConfig:
 
     allow_text_similarity_auto_write: bool = False
     """
-    Reserved safety switch. Text similarity alone should not be allowed to create trusted metadata.
+    Allow a conservative no-date fallback when site matches and title similarity is very high and unambiguous.
     """
 
     review_database_enabled: bool = False

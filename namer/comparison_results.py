@@ -10,6 +10,9 @@ from namer.configuration import NamerConfig
 from namer.fileinfo import FileInfo
 from namer.name_formatter import PartialFormatter
 
+NO_DATE_TEXT_MATCH_TARGET = 97.5
+NO_DATE_TEXT_MATCH_MARGIN = 5.0
+
 
 @dataclass(init=False, repr=False, eq=True, order=False, unsafe_hash=True, frozen=False)
 class Performer:
@@ -370,6 +373,16 @@ class ComparisonResult:
         """
         return bool(self.site_match and self.date_match and self.name_match and self.name_match >= target) and self.is_phash_match(target_distance)
 
+    def is_no_date_text_match(self, fileinfo: Optional[FileInfo], target: float = NO_DATE_TEXT_MATCH_TARGET) -> bool:
+        """
+        Returns true for a conservative text-only fallback when the source name has no date.
+
+        This is intentionally stricter than the normal name match and still requires a
+        matching site. It is only intended for opt-in use when the user accepts that
+        missing source dates cannot be independently verified.
+        """
+        return bool(fileinfo and not fileinfo.date and self.site_match and not self.date_match and self.name_match and self.name_match >= target)
+
     def as_dict(self) -> dict:
         return {
             'name': self.name,
@@ -386,9 +399,12 @@ class ComparisonResults:
     results: List[ComparisonResult]
     fileinfo: Optional[FileInfo]
 
-    def get_match(self, target_distance: int = 0) -> Optional[ComparisonResult]:
+    def get_match(self, target_distance: int = 0, allow_text_similarity_auto_write: bool = False) -> Optional[ComparisonResult]:
         match = None
-        if self.results and self.results[0].is_match(target_distance=target_distance):
+        if self.results and (
+            self.results[0].is_match(target_distance=target_distance)
+            or (allow_text_similarity_auto_write and self.results[0].is_no_date_text_match(self.fileinfo))
+        ):
             # verify the match isn't covering over a better namer match, if it is, no match shall be made
             # implying that the site and date on the name of the file may be wrong.   leave it for the user
             # to sort it out.
@@ -399,7 +415,13 @@ class ComparisonResults:
                     match_is_super = match.is_super_match(target_distance=target_distance)
                     potential_is_match = potential.is_match(target_distance=target_distance)
                     potential_is_super = potential.is_super_match(target_distance=target_distance)
+                    potential_is_close_no_date = (
+                        allow_text_similarity_auto_write
+                        and potential.is_no_date_text_match(self.fileinfo, match.name_match - NO_DATE_TEXT_MATCH_MARGIN if match.name_match else NO_DATE_TEXT_MATCH_TARGET)
+                    )
                     if not match_is_super and potential_is_match or potential_is_super:  # noqa: SIM114
+                        match = None
+                    elif not match_is_super and potential_is_close_no_date:
                         match = None
                     elif not match_is_super and not match.is_phash_match(target_distance=target_distance) and potential.name_match > match.name_match:
                         match = None

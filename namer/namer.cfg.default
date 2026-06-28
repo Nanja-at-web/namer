@@ -171,7 +171,9 @@ cleanup_normalize_separators = True
 # Default examples remove hashtags and common release/video markers from the search text.
 cleanup_remove_regex = \s*#[A-Za-z0-9_-]+, \b(?:web[-_. ]?dl|webrip|hdrip|bdrip|dvdrip|x264|x265|h264|h265|hevc|avc|aac|dts|rarbg)\b
 
-# Safety guard for future matching work. Leave false unless a later implementation explicitly supports it.
+# Optional no-date fallback. When true, Namer may accept a match without a source date
+# only if the site matches, title similarity is very high, and no close competing
+# candidate exists. Leave false for strict site+date+title or phash-only matching.
 allow_text_similarity_auto_write = False
 
 [review]

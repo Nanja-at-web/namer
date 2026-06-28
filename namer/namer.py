@@ -212,7 +212,7 @@ def _process_file(command: Command) -> Optional[Command]:
 
             search_results = match(command.parsed_file, command.config, phash=phash)
             if search_results:
-                matched = search_results.get_match(command.config.phash_match_distance)
+                matched = search_results.get_match(command.config.phash_match_distance, command.config.allow_text_similarity_auto_write)
                 if matched:
                     new_metadata = matched.looked_up
 
