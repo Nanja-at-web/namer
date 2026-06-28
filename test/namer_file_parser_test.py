@@ -62,6 +62,36 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
         self.assertEqual(name.trans, False)
         self.assertEqual(name.extension, 'mp4')
 
+    def test_parse_file_name_finds_year_first_date_later_in_name(self):
+        """
+        Test fallback date parsing when the date is present outside the normal parser position.
+        """
+        name = parse_file_name('EvilAngel.Carmela.Clutch.Fabulous.Anal.2022.01.03.XXX.mp4', sample_config())
+        self.assertEqual(name.site, 'EvilAngel')
+        self.assertEqual(name.date, '2022-01-03')
+        self.assertEqual(name.name, 'Carmela Clutch Fabulous Anal')
+        self.assertEqual(name.trans, False)
+        self.assertEqual(name.extension, 'mp4')
+
+    def test_parse_file_name_finds_unambiguous_day_first_date_later_in_name(self):
+        """
+        Test fallback date parsing for unambiguous day-first dates.
+        """
+        name = parse_file_name('EvilAngel.Carmela.Clutch.Fabulous.Anal.(23.01.2022).XXX.mp4', sample_config())
+        self.assertEqual(name.site, 'EvilAngel')
+        self.assertEqual(name.date, '2022-01-23')
+        self.assertEqual(name.name, 'Carmela Clutch Fabulous Anal')
+        self.assertEqual(name.trans, False)
+        self.assertEqual(name.extension, 'mp4')
+
+    def test_parse_file_name_does_not_guess_ambiguous_day_month_date(self):
+        """
+        Test that ambiguous dates are left unmatched rather than guessed.
+        """
+        name = parse_file_name('EvilAngel.Carmela.Clutch.Fabulous.Anal.(03.04.2022).XXX.mp4', sample_config())
+        self.assertEqual(name.date, None)
+        self.assertEqual(name.extension, 'mp4')
+
     def test_parse_file_name_no_date_ts_stamp(self):
         """
         Test standard name parsing.

@@ -13,6 +13,8 @@ from namer.configuration import NamerConfig
 from namer.videophash import PerceptualHash
 
 DEFAULT_REGEX_TOKENS = '{_site}{_sep}{_optional_date}{_ts}{_name}{_dot}{_ext}'
+YEAR_FIRST_DATE_RE = re.compile(r'(?<!\d)(?P<year>\d{2}|\d{4})[-._ ](?P<month>0?[1-9]|1[0-2])[-._ ](?P<day>0?[1-9]|[12]\d|3[01])(?!\d)')
+DAY_FIRST_UNAMBIGUOUS_DATE_RE = re.compile(r'(?<!\d)(?P<day>1[3-9]|[23]\d|3[01])[-._ ](?P<month>0?[1-9]|1[0-2])[-._ ](?P<year>\d{4})(?!\d)')
 
 
 @dataclass(init=False, repr=False, eq=True, order=False, unsafe_hash=True, frozen=False)
@@ -82,6 +84,7 @@ def name_cleaner(name: str, re_cleanup: List[Pattern]) -> str:
         name = regex.sub('', name)
 
     name = name.replace('.', ' ')
+    name = re.sub(r'[\[\(\{]\s*[\]\)\}]', ' ', name)
     name = ' '.join(name.split()).strip('-')
 
     return name
@@ -136,9 +139,11 @@ def parse_file_name(filename: str, namer_config: NamerConfig) -> FileInfo:
     filename = replace_abbreviations(filename, namer_config)
     regex = parser_config_to_regex(namer_config.name_parser)
     path = PurePath(filename)
+    fallback_date = _find_fallback_date_match(path.stem)
+    parse_path = PurePath(f'{_remove_fallback_date(path.stem)}{path.suffix}') if fallback_date else path
     file_name_parts = FileInfo()
     file_name_parts.extension = path.suffix[1:]
-    match = regex.search(filename)
+    match = regex.search(parse_path.name)
     if match:
         if match.groupdict().get('year'):
             prefix = '20' if len(match.group('year')) == 2 else ''
@@ -160,7 +165,43 @@ def parse_file_name(filename: str, namer_config: NamerConfig) -> FileInfo:
     else:
         logger.debug('Could not parse target name which may be a file (or directory) name depending on settings and input: {}', filename)
 
+    if not file_name_parts.date and fallback_date:
+        file_name_parts.date = _format_date(fallback_date.group('year'), fallback_date.group('month'), fallback_date.group('day'))
+
     return file_name_parts
+
+
+def find_fallback_date(text: str) -> Optional[str]:
+    """
+    Find a safe fallback date outside the configured parser position.
+
+    This only accepts year-first dates or day-first dates where the day is greater
+    than 12. Ambiguous dates such as 03.04.2018 are left alone because they could
+    be either DMY or MDY depending on source naming conventions.
+    """
+    match = _find_fallback_date_match(text)
+    if match:
+        return _format_date(match.group('year'), match.group('month'), match.group('day'))
+
+    return None
+
+
+def _find_fallback_date_match(text: str) -> Optional[re.Match]:
+    match = YEAR_FIRST_DATE_RE.search(text)
+    if match:
+        return match
+
+    return DAY_FIRST_UNAMBIGUOUS_DATE_RE.search(text)
+
+
+def _remove_fallback_date(text: str) -> str:
+    text = YEAR_FIRST_DATE_RE.sub(' ', text, count=1)
+    return DAY_FIRST_UNAMBIGUOUS_DATE_RE.sub(' ', text, count=1)
+
+
+def _format_date(year: str, month: str, day: str) -> str:
+    prefix = '20' if len(year) == 2 else ''
+    return f'{prefix}{year}-{int(month):02d}-{int(day):02d}'
 
 
 def replace_abbreviations(text: str, namer_config: NamerConfig):
