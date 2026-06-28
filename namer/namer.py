@@ -29,7 +29,7 @@ from namer.metadataapi import get_complete_metadataapi_net_fileinfo, get_image, 
 from namer.moviexml import parse_movie_xml_file, write_nfo
 from namer.mutagen import update_mp4_file
 from namer.name_formatter import PartialFormatter
-from namer.review_db import record_review_item
+from namer.review_db import classify_review_reason, record_review_item
 from namer.videophash import PerceptualHash, return_perceptual_hash
 
 DESCRIPTION = """
@@ -278,7 +278,7 @@ def _process_file(command: Command) -> Optional[Command]:
             if failed is not None and search_results is not None and failed.config.write_namer_failed_log:
                 write_log_file(failed.target_movie_file, search_results, failed.config)
             if failed is not None:
-                record_review_item(command, 'manual_review', 'no_verified_match', search_results, phash, failed.target_movie_file)
+                record_review_item(command, 'manual_review', classify_review_reason(command, search_results), search_results, phash, failed.target_movie_file)
 
     return None
 

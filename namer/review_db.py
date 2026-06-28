@@ -17,6 +17,9 @@ from namer.command import Command
 from namer.comparison_results import ComparisonResults
 from namer.videophash import PerceptualHash
 
+LOW_NAME_MATCH_TARGET = 90.0
+AMBIGUOUS_NAME_MATCH_MARGIN = 5.0
+
 
 def _json_default(value: Any) -> Any:
     if isinstance(value, Path):
@@ -69,6 +72,21 @@ def _ensure_schema(connection: sqlite3.Connection) -> None:
     )
     connection.execute('CREATE INDEX IF NOT EXISTS idx_review_source_path ON review_items(source_path)')
     connection.execute('CREATE INDEX IF NOT EXISTS idx_review_status ON review_items(status)')
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS review_site_alias_suggestions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            parsed_site TEXT NOT NULL,
+            candidate_site TEXT NOT NULL,
+            candidate_count INTEGER NOT NULL DEFAULT 0,
+            best_name_match REAL,
+            first_seen TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            last_seen TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(parsed_site, candidate_site)
+        )
+        """
+    )
+    connection.execute('CREATE INDEX IF NOT EXISTS idx_review_site_alias_suggestions_parsed_site ON review_site_alias_suggestions(parsed_site)')
 
 
 def _candidate_summary(search_results: Optional[ComparisonResults]) -> str:
@@ -96,6 +114,78 @@ def _candidate_summary(search_results: Optional[ComparisonResults]) -> str:
         )
 
     return _json_dumps(candidates)
+
+
+def classify_review_reason(command: Command, search_results: Optional[ComparisonResults]) -> str:
+    """
+    Classify why an item needs review without changing the matching outcome.
+    """
+    if not search_results or not search_results.results:
+        return 'no_candidates'
+
+    results = search_results.results
+    top = results[0]
+    parsed_file = search_results.fileinfo or command.parsed_file
+
+    if top.site_match is False:
+        return 'site_mismatch'
+
+    if parsed_file and not parsed_file.date:
+        return 'date_missing'
+
+    if top.date_match is False:
+        return 'date_mismatch'
+
+    if _has_close_competing_candidate(results):
+        return 'ambiguous_candidates'
+
+    if not top.name_match or top.name_match < LOW_NAME_MATCH_TARGET:
+        return 'low_name_match'
+
+    return 'no_verified_match'
+
+
+def _has_close_competing_candidate(results: list) -> bool:
+    if len(results) < 2:
+        return False
+
+    top = results[0]
+    top_score = top.name_match or 0
+    for candidate in results[1:5]:
+        candidate_score = candidate.name_match or 0
+        if (
+            candidate.site_match == top.site_match
+            and candidate.date_match == top.date_match
+            and top_score - candidate_score <= AMBIGUOUS_NAME_MATCH_MARGIN
+        ):
+            return True
+
+    return False
+
+
+def _record_site_alias_suggestion(connection: sqlite3.Connection, command: Command, search_results: Optional[ComparisonResults], reason: str) -> None:
+    if reason != 'site_mismatch' or not search_results or not search_results.results:
+        return
+
+    parsed_file = search_results.fileinfo or command.parsed_file
+    parsed_site = parsed_file.site.strip() if parsed_file and parsed_file.site else ''
+    candidate_site = search_results.results[0].looked_up.site.strip() if search_results.results[0].looked_up.site else ''
+    if not parsed_site or not candidate_site or parsed_site.lower() == candidate_site.lower():
+        return
+
+    connection.execute(
+        """
+        INSERT INTO review_site_alias_suggestions (
+            parsed_site, candidate_site, candidate_count, best_name_match
+        )
+        VALUES (?, ?, 1, ?)
+        ON CONFLICT(parsed_site, candidate_site) DO UPDATE SET
+            candidate_count = candidate_count + 1,
+            best_name_match = max(coalesce(best_name_match, 0), coalesce(excluded.best_name_match, 0)),
+            last_seen = CURRENT_TIMESTAMP
+        """,
+        (parsed_site, candidate_site, search_results.results[0].name_match),
+    )
 
 
 def record_review_item(
@@ -139,6 +229,7 @@ def record_review_item(
                     _candidate_summary(search_results),
                 ),
             )
+            _record_site_alias_suggestion(connection, command, search_results, reason)
             connection.commit()
     except Exception as error:  # pragma: no cover - review DB must never break processing
         logger.warning('Could not write review database item: {}', error)
