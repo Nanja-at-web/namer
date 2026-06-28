@@ -372,6 +372,8 @@ def from_config(config: ConfigUpdater, namer_config: NamerConfig) -> NamerConfig
     if not hasattr(namer_config, 'retry_time') or namer_config.retry_time is None:
         setattr(namer_config, 'retry_time', f'03:{random.randint(0, 59):0>2}')  # noqa: B010
 
+    namer_config.normalize_paths()
+
     return namer_config
 
 

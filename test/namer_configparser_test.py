@@ -58,3 +58,18 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
         updated.read_string(files_no_sites_with_no_date_info)
         double_read = from_config(updated, double_read)
         self.assertIn('badsite', double_read.sites_with_no_date_info)
+
+    def test_packaged_error_dirs_follow_external_failed_dir(self) -> None:
+        updater = ConfigUpdater(allow_no_value=True)
+        if hasattr(resources, 'files'):
+            config_str = resources.files('namer').joinpath('namer.cfg.default').read_text()
+        elif hasattr(resources, 'read_text'):
+            config_str = resources.read_text('namer', 'namer.cfg.default')
+        updater.read_string(config_str)
+        updater.get('watchdog', 'failed_dir').value = '/namer/faild'
+        updater.get('watchdog', 'dest_dir').value = '/namer/dest'
+
+        namer_config = from_config(updater, NamerConfig())
+
+        self.assertEqual(str(namer_config.problem_no_duplicates_dir), '/namer/error/problem_no_duplicates')
+        self.assertEqual(str(namer_config.no_problem_duplicates_dir), '/namer/error/no_problem_duplicates')

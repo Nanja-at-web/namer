@@ -567,6 +567,9 @@ class NamerConfig:
         if not hasattr(self, 'cleanup_remove_regex'):
             self.cleanup_remove_regex = []
 
+        self.normalize_paths()
+
+    def normalize_paths(self):
         if hasattr(self, 'watch_dir'):
             self.watch_dir = self.watch_dir.resolve()
         if hasattr(self, 'work_dir'):
@@ -583,6 +586,13 @@ class NamerConfig:
             self.problem_no_duplicates_dir = self.problem_no_duplicates_dir.resolve()
         if hasattr(self, 'no_problem_duplicates_dir'):
             self.no_problem_duplicates_dir = self.no_problem_duplicates_dir.resolve()
+        if hasattr(self, 'failed_dir') and hasattr(self, 'problem_no_duplicates_dir') and self._uses_packaged_test_error_dir(self.problem_no_duplicates_dir, 'problem_no_duplicates'):
+            self.problem_no_duplicates_dir = (self.failed_dir.parent / 'error' / 'problem_no_duplicates').resolve()
+        if hasattr(self, 'failed_dir') and hasattr(self, 'no_problem_duplicates_dir') and self._uses_packaged_test_error_dir(self.no_problem_duplicates_dir, 'no_problem_duplicates'):
+            self.no_problem_duplicates_dir = (self.failed_dir.parent / 'error' / 'no_problem_duplicates').resolve()
+
+    def _uses_packaged_test_error_dir(self, path: Path, leaf: str) -> bool:
+        return str(path).endswith(f'/test/error/{leaf}') and not str(self.failed_dir).endswith('/test/failed')
 
     def __str__(self):
         config = self.to_dict()
