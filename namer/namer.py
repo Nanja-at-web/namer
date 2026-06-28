@@ -17,7 +17,7 @@ from typing import List, Optional
 import orjson
 from loguru import logger
 
-from namer.command import Command, make_command, move_command_files, move_to_final_location, set_permissions, write_log_file
+from namer.command import Command, expected_destination_exists, failed_log_file_for_movie, make_command, move_command_files, move_to_final_location, move_to_processing_error_dir, primary_final_movie_path, set_permissions, write_log_file
 from namer.comparison_results import ComparisonResult, ComparisonResults, HashType, LookedUpFileInfo, SceneHash
 from namer.configuration import ImageDownloadType, NamerConfig
 from namer.configuration_utils import default_config, verify_configuration
@@ -160,8 +160,22 @@ def process_file(command: Command) -> Optional[Command]:
     The file is then update based on the metadata from the porndb if a mp4.
     """
     logger.info('Processing: {}', command.input_file)
+    try:
+        return _process_file(command)
+    except Exception as exc:
+        duplicate_exists = expected_destination_exists(command)
+        error_dir = command.config.no_problem_duplicates_dir if duplicate_exists else command.config.problem_no_duplicates_dir
+        logger.error('Moving errored item to {} after processing error: {}', error_dir, exc)
+        moved = move_to_processing_error_dir(command, duplicate_exists)
+        if moved is not None:
+            record_review_item(command, 'error', 'duplicate_exists' if duplicate_exists else 'processing_error', None, None, moved.target_movie_file)
+        return moved
+
+
+def _process_file(command: Command) -> Optional[Command]:
     if command.target_movie_file is not None:
         phash: Optional[PerceptualHash] = None
+        ffprobe_results: Optional[FFProbeResults] = None
         new_metadata: Optional[LookedUpFileInfo] = None
         search_results: ComparisonResults = ComparisonResults([], None)
         # convert container type if requested.
@@ -186,6 +200,11 @@ def process_file(command: Command) -> Optional[Command]:
             if file_infos is not None:
                 new_metadata = file_infos
         elif new_metadata is None and ((command.parsed_file is not None and command.parsed_file.name is not None) or command.config.search_phash):
+            if command.config.search_phash:
+                ffprobe_results = command.config.ffmpeg.ffprobe(command.target_movie_file)
+                if not ffprobe_results:
+                    raise RuntimeError(f'Could not read video file with ffprobe: {command.target_movie_file}')
+
             phash = calculate_phash(command.target_movie_file, command.config) if command.config.search_phash else None
             if phash:
                 logger.info(f'Calculated hashes: {phash.to_dict()}')
@@ -211,6 +230,7 @@ def process_file(command: Command) -> Optional[Command]:
         target_dir = command.target_directory if command.target_directory is not None else command.target_movie_file.parent
         set_permissions(target_dir, command.config)
         if new_metadata is not None:
+            command.expected_destination_file = primary_final_movie_path(command, new_metadata)
             if command.config.manual_mode and command.is_auto:
                 failed = move_command_files(command, command.config.failed_dir)
                 if failed is not None and search_results is not None and failed.config.write_namer_failed_log:
@@ -218,15 +238,18 @@ def process_file(command: Command) -> Optional[Command]:
                 if failed is not None:
                     record_review_item(command, 'manual_review', 'manual_mode', search_results, phash, failed.target_movie_file)
             else:
-                ffprobe_results = command.config.ffmpeg.ffprobe(command.target_movie_file)
-                if ffprobe_results:
-                    new_metadata.resolution = ffprobe_results.get_resolution()
+                if not ffprobe_results:
+                    ffprobe_results = command.config.ffmpeg.ffprobe(command.target_movie_file)
+                if not ffprobe_results:
+                    raise RuntimeError(f'Could not read video file with ffprobe: {command.target_movie_file}')
 
-                    video = ffprobe_results.get_default_video_stream()
-                    new_metadata.video_codec = video.codec_name if video else None
+                new_metadata.resolution = ffprobe_results.get_resolution()
 
-                    audio = ffprobe_results.get_default_audio_stream()
-                    new_metadata.audio_codec = audio.codec_name if audio else None
+                video = ffprobe_results.get_default_video_stream()
+                new_metadata.video_codec = video.codec_name if video else None
+
+                audio = ffprobe_results.get_default_audio_stream()
+                new_metadata.audio_codec = audio.codec_name if audio else None
 
                 if command.config.send_phash:
                     phash = phash if phash else calculate_phash(command.target_movie_file, command.config)
@@ -239,7 +262,7 @@ def process_file(command: Command) -> Optional[Command]:
                         scene_hash = SceneHash(phash.oshash, HashType.OSHASH, phash.duration)
                         share_hash(new_metadata, scene_hash, command.config)
 
-                log_file = command.config.failed_dir / (command.input_file.stem + '_namer.json.gz')
+                log_file = failed_log_file_for_movie(command.config.failed_dir / command.input_file.name)
                 if log_file.is_file():
                     log_file.unlink()
 

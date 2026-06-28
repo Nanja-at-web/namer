@@ -12,7 +12,9 @@ from unittest.mock import patch
 
 from loguru import logger
 
-from namer.command import failed_log_file_for_movie, main, non_conflicting_path, set_permissions
+from namer.command import Command, expected_destination_exists, failed_log_file_for_movie, main, move_to_processing_error_dir, non_conflicting_path, primary_final_movie_path, set_permissions
+from namer.comparison_results import LookedUpFileInfo
+from namer.fileinfo import FileInfo
 from test import utils
 from test.utils import environment, sample_config
 
@@ -68,6 +70,74 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
 
             (temp_dir / 'extra(1).nfo').write_text('older', encoding='utf-8')
             self.assertEqual(non_conflicting_path(target), temp_dir / 'extra(2).nfo')
+
+    def test_primary_final_movie_path_and_duplicate_detection(self):
+        with tempfile.TemporaryDirectory(prefix='test') as tmpdir:
+            temp_dir = Path(tmpdir)
+            config = sample_config()
+            config.dest_dir = temp_dir / 'dest'
+            config.dest_dir.mkdir()
+
+            source = temp_dir / 'work' / 'source.mp4'
+            source.parent.mkdir()
+            source.write_text('video', encoding='utf-8')
+
+            command = Command()
+            command.input_file = source
+            command.target_movie_file = source
+            command.config = config
+
+            metadata = LookedUpFileInfo()
+            metadata.site = 'Evil Angel'
+            metadata.date = '2022-01-03'
+            metadata.name = 'Scene Title'
+            metadata.resolution = 1080
+            metadata.original_parsed_filename = FileInfo()
+            metadata.original_parsed_filename.extension = 'mp4'
+
+            expected = config.dest_dir / 'Evil Angel' / 'Evil Angel - 2022-01-03 - Scene Title [WEBDL-1080p].mp4'
+            self.assertEqual(primary_final_movie_path(command, metadata), expected.resolve())
+
+            command.expected_destination_file = expected
+            self.assertFalse(expected_destination_exists(command))
+
+            expected.parent.mkdir(parents=True)
+            expected.write_text('existing', encoding='utf-8')
+            self.assertTrue(expected_destination_exists(command))
+
+    def test_move_to_processing_error_dir_uses_duplicate_classification(self):
+        with tempfile.TemporaryDirectory(prefix='test') as tmpdir:
+            temp_dir = Path(tmpdir)
+            config = sample_config()
+            config.problem_no_duplicates_dir = temp_dir / 'error' / 'problem_no_duplicates'
+            config.no_problem_duplicates_dir = temp_dir / 'error' / 'no_problem_duplicates'
+            config.min_file_size = 0
+
+            source = temp_dir / 'work' / 'source.mp4'
+            source.parent.mkdir()
+            source.write_text('video', encoding='utf-8')
+
+            command = Command()
+            command.input_file = source
+            command.target_movie_file = source
+            command.config = config
+            command.is_auto = True
+
+            moved = move_to_processing_error_dir(command, duplicate_exists=False)
+            self.assertIsNotNone(moved)
+            self.assertTrue((config.problem_no_duplicates_dir / 'source.mp4').exists())
+
+            duplicate_source = temp_dir / 'work' / 'duplicate.mp4'
+            duplicate_source.write_text('video', encoding='utf-8')
+            duplicate_command = Command()
+            duplicate_command.input_file = duplicate_source
+            duplicate_command.target_movie_file = duplicate_source
+            duplicate_command.config = config
+            duplicate_command.is_auto = True
+
+            moved_duplicate = move_to_processing_error_dir(duplicate_command, duplicate_exists=True)
+            self.assertIsNotNone(moved_duplicate)
+            self.assertTrue((config.no_problem_duplicates_dir / 'duplicate.mp4').exists())
 
     def test_set_permission(self):
         """

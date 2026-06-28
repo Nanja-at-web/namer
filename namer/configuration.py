@@ -451,6 +451,16 @@ class NamerConfig:
     If running in watchdog mode, dir where finalized files get written.
     """
 
+    problem_no_duplicates_dir: Path
+    """
+    If processing raises an error and the expected destination does not already exist, move the item here.
+    """
+
+    no_problem_duplicates_dir: Path
+    """
+    If processing raises an error and the expected destination already exists, move the item here.
+    """
+
     retry_time: str
     """
     Time to retry failed items every day.
@@ -565,6 +575,14 @@ class NamerConfig:
             self.dest_dir = self.dest_dir.resolve()
         if hasattr(self, 'failed_dir'):
             self.failed_dir = self.failed_dir.resolve()
+            if not hasattr(self, 'problem_no_duplicates_dir'):
+                self.problem_no_duplicates_dir = (self.failed_dir.parent / 'error' / 'problem_no_duplicates').resolve()
+            if not hasattr(self, 'no_problem_duplicates_dir'):
+                self.no_problem_duplicates_dir = (self.failed_dir.parent / 'error' / 'no_problem_duplicates').resolve()
+        if hasattr(self, 'problem_no_duplicates_dir'):
+            self.problem_no_duplicates_dir = self.problem_no_duplicates_dir.resolve()
+        if hasattr(self, 'no_problem_duplicates_dir'):
+            self.no_problem_duplicates_dir = self.no_problem_duplicates_dir.resolve()
 
     def __str__(self):
         config = self.to_dict()
@@ -671,6 +689,8 @@ class NamerConfig:
                 'work_dir': str(self.work_dir),
                 'failed_dir': str(self.failed_dir),
                 'dest_dir': str(self.dest_dir),
+                'problem_no_duplicates_dir': str(self.problem_no_duplicates_dir),
+                'no_problem_duplicates_dir': str(self.no_problem_duplicates_dir),
                 'retry_time': self.retry_time,
                 'extra_sleep_time': self.extra_sleep_time,
                 'queue_limit': self.queue_limit,

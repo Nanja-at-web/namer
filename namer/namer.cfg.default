@@ -307,6 +307,12 @@ failed_dir = ./test/failed
 # dir where finalized files get written.
 dest_dir = ./test/dest
 
+# Errors where the expected destination does not already exist.
+problem_no_duplicates_dir = ./test/error/problem_no_duplicates
+
+# Errors where the expected destination already exists.
+no_problem_duplicates_dir = ./test/error/no_problem_duplicates
+
 # When to retry failed items, default is a random minute during the 3 am hour in your timezone.
 retry_time =
 

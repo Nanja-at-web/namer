@@ -84,6 +84,12 @@ class Command:
 
     config: NamerConfig
 
+    expected_destination_file: Optional[Path] = None
+    """
+    The primary final movie path expected from metadata before conflict suffixes are applied.
+    Used to classify hard processing errors without guessing from filenames.
+    """
+
     def get_command_target(self):
         return str(self.target_movie_file.resolve())
 
@@ -249,6 +255,54 @@ def non_conflicting_path(path: Path) -> Path:
         if not candidate.exists():
             return candidate
         infix += 1
+
+
+def primary_final_movie_path(command: Command, new_metadata: LookedUpFileInfo) -> Path:
+    name_template = get_inplace_name_template_by_type(command.config, new_metadata.type)
+    target_dir = command.target_movie_file.parent
+
+    if command.target_directory:
+        name_template = get_new_relative_path_name_template_by_type(command.config, new_metadata.type)
+        target_dir = command.target_directory.parent
+
+    if not command.inplace:
+        name_template = get_new_relative_path_name_template_by_type(command.config, new_metadata.type)
+        target_dir = command.config.dest_dir
+
+    relative_path = Path(new_metadata.new_file_name(name_template, command.config, ''))
+    return (target_dir / relative_path).resolve()
+
+
+def expected_destination_exists(command: Command) -> bool:
+    expected_destination_file = getattr(command, 'expected_destination_file', None)
+    return bool(expected_destination_file and expected_destination_file.exists() and is_relative_to(expected_destination_file, command.config.dest_dir))
+
+
+def move_to_processing_error_dir(command: Command, duplicate_exists: bool) -> Optional[Command]:
+    target_dir = command.config.no_problem_duplicates_dir if duplicate_exists else command.config.problem_no_duplicates_dir
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    if command.target_directory and command.input_file == command.target_directory and command.target_directory.exists():
+        error_dir = non_conflicting_path(target_dir / command.target_directory.name)
+        logger.info('Moving {} to {} after processing error', command.target_directory, error_dir)
+        shutil.move(command.target_directory, error_dir)
+        output = make_command(error_dir, command.config, is_auto=command.is_auto)
+    elif command.target_movie_file and command.target_movie_file.exists():
+        error_file = non_conflicting_path(target_dir / command.target_movie_file.name)
+        logger.info('Moving {} to {} after processing error', command.target_movie_file, error_file)
+        shutil.move(command.target_movie_file, error_file)
+        output = make_command(error_file, command.config, is_auto=command.is_auto)
+    else:
+        logger.warning('Could not move errored item because source no longer exists: {}', command.target_movie_file)
+        return None
+
+    if output:
+        output.tpdb_id = command.tpdb_id
+        output.inplace = command.inplace
+        output.write_from_nfos = command.write_from_nfos
+        output.expected_destination_file = command.expected_destination_file
+
+    return output
 
 
 def move_to_final_location(command: Command, new_metadata: LookedUpFileInfo) -> Command:
