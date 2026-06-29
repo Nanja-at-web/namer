@@ -8,10 +8,10 @@ from unittest import mock
 
 from loguru import logger
 
-from namer.comparison_results import SceneType
+from namer.comparison_results import ComparisonResult, ComparisonResults, LookedUpFileInfo, SceneType
 from namer.fileinfo import parse_file_name
 from namer.command import make_command
-from namer.metadataapi import main, match
+from namer.metadataapi import build_overparsed_name_fallback, main, match
 from test import utils
 from test.utils import environment, sample_config
 
@@ -197,6 +197,37 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
             if command is not None:
                 results = match(command.parsed_file, config)
                 self.assertEqual(len(results.results), 0)
+
+    def test_build_overparsed_name_fallback_combines_site_and_name(self):
+        name = parse_file_name('New.Scene.Title.1080p.mp4', sample_config())
+
+        fallback = build_overparsed_name_fallback(name)
+
+        self.assertIsNotNone(fallback)
+        if fallback is not None:
+            self.assertIsNone(fallback.site)
+            self.assertIsNone(fallback.date)
+            self.assertEqual(fallback.name, 'New Scene Title')
+
+    def test_overparsed_name_fallback_does_not_allow_text_auto_match(self):
+        name = parse_file_name('New.Scene.Title.1080p.mp4', sample_config())
+        fallback = build_overparsed_name_fallback(name)
+        looked_up = LookedUpFileInfo()
+        looked_up.site = 'Example Site'
+        looked_up.date = '2026-06-29'
+        looked_up.name = 'New Scene Title'
+        result = ComparisonResult(
+            name='New Scene Title',
+            name_match=100,
+            site_match=False,
+            date_match=False,
+            name_parts=fallback,
+            looked_up=looked_up,
+            phash_distance=None,
+            phash_duration=None,
+        )
+
+        self.assertIsNone(ComparisonResults([result], fallback).get_match(allow_text_similarity_auto_write=True))
 
     @mock.patch('sys.stdout', new_callable=io.StringIO)
     def test_main_metadataapi_net(self, mock_stdout):

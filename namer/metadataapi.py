@@ -150,16 +150,29 @@ def __evaluate_match(name_parts: Optional[FileInfo], looked_up: LookedUpFileInfo
     )
 
 
-def __update_results(results: List[ComparisonResult], name_parts: Optional[FileInfo], namer_config: NamerConfig, skip_date: bool = False, skip_name: bool = False, scene_type: SceneType = SceneType.SCENE, phash: Optional[PerceptualHash] = None):
+def __update_results(
+    results: List[ComparisonResult],
+    name_parts: Optional[FileInfo],
+    namer_config: NamerConfig,
+    skip_date: bool = False,
+    skip_name: bool = False,
+    scene_type: SceneType = SceneType.SCENE,
+    phash: Optional[PerceptualHash] = None,
+    verified_site_context: bool = True,
+):
     if not results or not results[0].is_match(target_distance=namer_config.phash_match_distance):
         for match_attempt in __get_metadataapi_net_fileinfo(name_parts, namer_config, skip_date, skip_name, scene_type=scene_type, phash=phash):
             if match_attempt.uuid not in [res.looked_up.uuid for res in results]:
                 result: ComparisonResult = __evaluate_match(name_parts, match_attempt, namer_config, phash)
+                if not verified_site_context:
+                    result.site_match = False
                 results.append(result)
 
         for match_attempt in __get_metadataapi_net_fileinfo(name_parts, namer_config, skip_date, skip_name, scene_type=scene_type):
             if match_attempt.uuid not in [res.looked_up.uuid for res in results]:
                 result: ComparisonResult = __evaluate_match(name_parts, match_attempt, namer_config, phash)
+                if not verified_site_context:
+                    result.site_match = False
                 results.append(result)
 
         results = sorted(results, key=__match_weight, reverse=True)
@@ -194,7 +207,44 @@ def __metadata_api_lookup(name_parts: FileInfo, namer_config: NamerConfig, phash
         scene_type = SceneType.MOVIE if scene_type == SceneType.SCENE else SceneType.SCENE
         results: List[ComparisonResult] = __metadata_api_lookup_type(results, name_parts, namer_config, scene_type, phash)
 
+    if not results or not results[0].is_match(target_distance=namer_config.phash_match_distance):
+        results = __metadata_api_lookup_overparsed_name(results, name_parts, namer_config, phash)
+
     return results
+
+
+def __metadata_api_lookup_overparsed_name(results: List[ComparisonResult], name_parts: FileInfo, namer_config: NamerConfig, phash: Optional[PerceptualHash] = None) -> List[ComparisonResult]:
+    fallback_parts = build_overparsed_name_fallback(name_parts)
+    if fallback_parts is None:
+        return results
+
+    results = __update_results(results, fallback_parts, namer_config, scene_type=SceneType.SCENE, phash=phash, verified_site_context=False)
+    if not results or not results[0].is_match(target_distance=namer_config.phash_match_distance):
+        results = __update_results(results, fallback_parts, namer_config, scene_type=SceneType.MOVIE, phash=phash, verified_site_context=False)
+
+    return results
+
+
+def build_overparsed_name_fallback(name_parts: Optional[FileInfo]) -> Optional[FileInfo]:
+    """
+    Build a review-oriented name-only search when the parser likely treated a title
+    word or performer name as the site.
+
+    The returned FileInfo intentionally has no site/date. Its text results are not
+    considered verified matches; they only improve candidate discovery unless phash
+    verification succeeds.
+    """
+    if not name_parts or not name_parts.site or not name_parts.name or name_parts.date:
+        return None
+
+    fallback = FileInfo()
+    fallback.name = ' '.join([name_parts.site, name_parts.name]).strip()
+    fallback.extension = name_parts.extension
+    fallback.source_file_name = name_parts.source_file_name
+    fallback.source_file_stem = name_parts.source_file_stem
+    fallback.hashes = name_parts.hashes
+    fallback.trans = name_parts.trans
+    return fallback
 
 
 def __match_weight(result: ComparisonResult) -> float:
@@ -217,6 +267,8 @@ def __match_weight(result: ComparisonResult) -> float:
         logger.debug("No-date text match of {:.2f} with '{} - {} - {}' for name: {}", value, result.looked_up.site, result.looked_up.date, result.looked_up.name, result.name)
         value += 900.00
         value = (result.name_match + value) if result.name_match else value
+    elif result.name_parts and not result.name_parts.site and not result.name_parts.date and result.name_match:
+        value += result.name_match
 
     logger.debug('Match was {:.2f} for {}', value, result.name)
 
