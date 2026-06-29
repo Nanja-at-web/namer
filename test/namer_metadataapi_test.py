@@ -11,7 +11,7 @@ from loguru import logger
 from namer.comparison_results import ComparisonResult, ComparisonResults, LookedUpFileInfo, SceneType
 from namer.fileinfo import parse_file_name
 from namer.command import make_command
-from namer.metadataapi import build_overparsed_name_fallback, main, match
+from namer.metadataapi import _add_or_replace_result, build_overparsed_name_fallback, main, match
 from test import utils
 from test.utils import environment, sample_config
 
@@ -229,6 +229,16 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
 
         self.assertIsNone(ComparisonResults([result], fallback).get_match(allow_text_similarity_auto_write=True))
 
+    def test_add_or_replace_result_keeps_better_same_uuid_candidate(self):
+        existing = _comparison_result(uuid='same-uuid', name_match=0)
+        better = _comparison_result(uuid='same-uuid', name_match=99, site_match=False, date_match=False, name_parts=build_overparsed_name_fallback(parse_file_name('New.Scene.Title.1080p.mp4', sample_config())))
+        results = [existing]
+
+        _add_or_replace_result(results, better)
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].name_match, 99)
+
     @mock.patch('sys.stdout', new_callable=io.StringIO)
     def test_main_metadataapi_net(self, mock_stdout):
         """
@@ -241,6 +251,23 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
                 pass
             main(['-f', str(tmp_file), '-c', str(config.config_file)])
             self.assertIn('Evil Angel - 2022-01-03 - Carmela Clutch Fabulous Anal 3-Way! [WEBDL-].mp4', mock_stdout.getvalue())
+
+def _comparison_result(uuid='scene-uuid', name_match=99, site_match=False, date_match=False, name_parts=None):
+    looked_up = LookedUpFileInfo()
+    looked_up.uuid = uuid
+    looked_up.site = 'Example Site'
+    looked_up.date = '2026-06-29'
+    looked_up.name = 'New Scene Title'
+    return ComparisonResult(
+        name='New Scene Title' if name_match else '',
+        name_match=name_match,
+        site_match=site_match,
+        date_match=date_match,
+        name_parts=name_parts,
+        looked_up=looked_up,
+        phash_distance=None,
+        phash_duration=None,
+    )
 
 
 if __name__ == '__main__':

@@ -162,22 +162,30 @@ def __update_results(
 ):
     if not results or not results[0].is_match(target_distance=namer_config.phash_match_distance):
         for match_attempt in __get_metadataapi_net_fileinfo(name_parts, namer_config, skip_date, skip_name, scene_type=scene_type, phash=phash):
-            if match_attempt.uuid not in [res.looked_up.uuid for res in results]:
-                result: ComparisonResult = __evaluate_match(name_parts, match_attempt, namer_config, phash)
-                if not verified_site_context:
-                    result.site_match = False
-                results.append(result)
+            result: ComparisonResult = __evaluate_match(name_parts, match_attempt, namer_config, phash)
+            if not verified_site_context:
+                result.site_match = False
+            _add_or_replace_result(results, result)
 
         for match_attempt in __get_metadataapi_net_fileinfo(name_parts, namer_config, skip_date, skip_name, scene_type=scene_type):
-            if match_attempt.uuid not in [res.looked_up.uuid for res in results]:
-                result: ComparisonResult = __evaluate_match(name_parts, match_attempt, namer_config, phash)
-                if not verified_site_context:
-                    result.site_match = False
-                results.append(result)
+            result: ComparisonResult = __evaluate_match(name_parts, match_attempt, namer_config, phash)
+            if not verified_site_context:
+                result.site_match = False
+            _add_or_replace_result(results, result)
 
         results = sorted(results, key=__match_weight, reverse=True)
 
     return results
+
+
+def _add_or_replace_result(results: List[ComparisonResult], candidate: ComparisonResult) -> None:
+    for index, result in enumerate(results):
+        if result.looked_up.uuid and result.looked_up.uuid == candidate.looked_up.uuid:
+            if __match_weight(candidate) > __match_weight(result):
+                results[index] = candidate
+            return
+
+    results.append(candidate)
 
 
 def __metadata_api_lookup_type(results: List[ComparisonResult], name_parts: Optional[FileInfo], namer_config: NamerConfig, scene_type: SceneType, phash: Optional[PerceptualHash] = None) -> List[ComparisonResult]:
