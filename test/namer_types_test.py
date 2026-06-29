@@ -82,6 +82,58 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
         result.phash_duration = False
         self.assertFalse(result.is_match(target_distance=4))
 
+    def test_exact_phash_match_keeps_best_text_candidate_when_duplicates_exist(self):
+        looked_up = LookedUpFileInfo()
+        result = ComparisonResult(
+            name='Best text',
+            name_match=99.0,
+            site_match=False,
+            date_match=False,
+            name_parts=None,
+            looked_up=looked_up,
+            phash_distance=0,
+            phash_duration=True,
+        )
+        competitor = ComparisonResult(
+            name='Weaker text',
+            name_match=90.0,
+            site_match=False,
+            date_match=False,
+            name_parts=None,
+            looked_up=looked_up,
+            phash_distance=0,
+            phash_duration=True,
+        )
+        results = ComparisonResults([result, competitor], None)
+
+        self.assertEqual(results.get_match(target_distance=4), result)
+
+    def test_phash_match_prefers_lower_distance_candidate(self):
+        looked_up = LookedUpFileInfo()
+        result = ComparisonResult(
+            name='Higher text but weaker hash',
+            name_match=99.0,
+            site_match=False,
+            date_match=False,
+            name_parts=None,
+            looked_up=looked_up,
+            phash_distance=4,
+            phash_duration=True,
+        )
+        competitor = ComparisonResult(
+            name='Lower text but exact hash',
+            name_match=90.0,
+            site_match=False,
+            date_match=False,
+            name_parts=None,
+            looked_up=looked_up,
+            phash_distance=0,
+            phash_duration=True,
+        )
+        results = ComparisonResults([result, competitor], None)
+
+        self.assertEqual(results.get_match(target_distance=4), competitor)
+
     def test_no_date_text_match_requires_opt_in_and_unambiguous_site_title(self):
         fileinfo = FileInfo()
         fileinfo.site = 'Site'

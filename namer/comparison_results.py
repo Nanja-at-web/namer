@@ -415,11 +415,17 @@ class ComparisonResults:
                     match_is_super = match.is_super_match(target_distance=target_distance)
                     potential_is_match = potential.is_match(target_distance=target_distance)
                     potential_is_super = potential.is_super_match(target_distance=target_distance)
+                    potential_is_phash_match = potential.is_phash_match(target_distance=target_distance)
                     potential_is_close_no_date = (
                         allow_text_similarity_auto_write
                         and potential.is_no_date_text_match(self.fileinfo, match.name_match - NO_DATE_TEXT_MATCH_MARGIN if match.name_match else NO_DATE_TEXT_MATCH_TARGET)
                     )
-                    if not match_is_super and potential_is_match or potential_is_super:  # noqa: SIM114
+                    if match.is_phash_match(target_distance=target_distance) and potential_is_phash_match:
+                        if (potential.phash_distance or 0) < (match.phash_distance or 0):
+                            match = potential
+                        elif potential.phash_distance == match.phash_distance and (potential.name_match or 0) > (match.name_match or 0):
+                            match = potential
+                    elif not match_is_super and potential_is_match or potential_is_super:  # noqa: SIM114
                         match = None
                     elif not match_is_super and potential_is_close_no_date:
                         match = None
