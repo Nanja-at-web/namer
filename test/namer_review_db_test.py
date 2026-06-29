@@ -50,8 +50,13 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
     def test_classify_review_reason_no_candidates(self):
         self.assertEqual(classify_review_reason(_command(), ComparisonResults([], _fileinfo())), 'no_candidates')
 
-    def test_classify_review_reason_site_mismatch_before_missing_date(self):
+    def test_classify_review_reason_site_missing_or_overparsed_before_missing_date(self):
         results = ComparisonResults([_result(site_match=False, date_match=False, name_match=99)], _fileinfo(date=None))
+
+        self.assertEqual(classify_review_reason(_command(), results), 'site_missing_or_overparsed')
+
+    def test_classify_review_reason_site_mismatch_with_date_anchor(self):
+        results = ComparisonResults([_result(site_match=False, date_match=True, name_match=99)], _fileinfo(date='2026-06-27'))
 
         self.assertEqual(classify_review_reason(_command(), results), 'site_mismatch')
 
@@ -80,6 +85,11 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
         results = ComparisonResults([_result(site_match=True, date_match=True, name_match=80)], _fileinfo(date='2026-06-27'))
 
         self.assertEqual(classify_review_reason(_command(), results), 'low_name_match')
+
+    def test_classify_review_reason_near_name_match(self):
+        results = ComparisonResults([_result(site_match=True, date_match=True, name_match=93)], _fileinfo(date='2026-06-27'))
+
+        self.assertEqual(classify_review_reason(_command(), results), 'near_name_match')
 
 
 def _command(parsed_file=None):

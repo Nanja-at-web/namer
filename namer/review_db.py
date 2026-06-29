@@ -18,6 +18,7 @@ from namer.comparison_results import ComparisonResults
 from namer.videophash import PerceptualHash
 
 LOW_NAME_MATCH_TARGET = 90.0
+NAME_MATCH_TARGET = 94.9
 AMBIGUOUS_NAME_MATCH_MARGIN = 5.0
 
 
@@ -128,6 +129,8 @@ def classify_review_reason(command: Command, search_results: Optional[Comparison
     parsed_file = search_results.fileinfo or command.parsed_file
 
     if top.site_match is False:
+        if parsed_file and not parsed_file.date:
+            return 'site_missing_or_overparsed'
         return 'site_mismatch'
 
     if parsed_file and not parsed_file.date:
@@ -141,6 +144,9 @@ def classify_review_reason(command: Command, search_results: Optional[Comparison
 
     if not top.name_match or top.name_match < LOW_NAME_MATCH_TARGET:
         return 'low_name_match'
+
+    if top.name_match < NAME_MATCH_TARGET:
+        return 'near_name_match'
 
     return 'no_verified_match'
 
