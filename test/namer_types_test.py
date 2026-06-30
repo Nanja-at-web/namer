@@ -134,6 +134,32 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
 
         self.assertEqual(results.get_match(target_distance=4), competitor)
 
+    def test_phash_match_wins_over_verified_text_candidate(self):
+        looked_up = LookedUpFileInfo()
+        result = ComparisonResult(
+            name='Verified text',
+            name_match=97.0,
+            site_match=True,
+            date_match=True,
+            name_parts=None,
+            looked_up=looked_up,
+            phash_distance=28,
+            phash_duration=False,
+        )
+        competitor = ComparisonResult(
+            name='Exact video fingerprint',
+            name_match=90.0,
+            site_match=False,
+            date_match=False,
+            name_parts=None,
+            looked_up=looked_up,
+            phash_distance=0,
+            phash_duration=True,
+        )
+        results = ComparisonResults([result, competitor], None)
+
+        self.assertEqual(results.get_match(target_distance=4), competitor)
+
     def test_no_date_text_match_requires_opt_in_and_unambiguous_site_title(self):
         fileinfo = FileInfo()
         fileinfo.site = 'Site'

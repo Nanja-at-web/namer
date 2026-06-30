@@ -425,6 +425,8 @@ class ComparisonResults:
                             match = potential
                         elif potential.phash_distance == match.phash_distance and (potential.name_match or 0) > (match.name_match or 0):
                             match = potential
+                    elif potential_is_phash_match:
+                        match = potential
                     elif not match_is_super and potential_is_match or potential_is_super:  # noqa: SIM114
                         match = None
                     elif not match_is_super and potential_is_close_no_date:
