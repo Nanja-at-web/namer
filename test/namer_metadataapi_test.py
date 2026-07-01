@@ -11,7 +11,7 @@ from loguru import logger
 from namer.comparison_results import ComparisonResult, ComparisonResults, LookedUpFileInfo, SceneType
 from namer.fileinfo import parse_file_name
 from namer.command import make_command
-from namer.metadataapi import _add_or_replace_result, build_overparsed_name_fallback, main, match
+from namer.metadataapi import _add_or_replace_result, build_overparsed_name_fallback, build_overparsed_name_fallbacks, main, match
 from test import utils
 from test.utils import environment, sample_config
 
@@ -208,6 +208,23 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
             self.assertIsNone(fallback.site)
             self.assertIsNone(fallback.date)
             self.assertEqual(fallback.name, 'New Scene Title')
+
+    def test_build_overparsed_name_fallbacks_adds_name_only_variant(self):
+        name = parse_file_name('New.Scene.Title.1080p.mp4', sample_config())
+
+        fallbacks = build_overparsed_name_fallbacks(name)
+
+        self.assertEqual([fallback.name for fallback in fallbacks], ['New Scene Title', 'Scene Title'])
+        for fallback in fallbacks:
+            self.assertIsNone(fallback.site)
+            self.assertIsNone(fallback.date)
+
+    def test_build_overparsed_name_fallbacks_normalizes_common_separators(self):
+        name = parse_file_name('New+Scene_Title.Part.1080p.mp4', sample_config())
+
+        fallbacks = build_overparsed_name_fallbacks(name)
+
+        self.assertEqual(fallbacks[0].name, 'New Scene Title Part')
 
     def test_overparsed_name_fallback_does_not_allow_text_auto_match(self):
         name = parse_file_name('New.Scene.Title.1080p.mp4', sample_config())

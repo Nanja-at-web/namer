@@ -11,7 +11,7 @@ import sys
 from contextlib import suppress
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, List, Optional, Tuple
+from typing import Any, Iterable, List, Optional, Tuple
 from urllib.parse import quote
 
 import orjson
@@ -222,37 +222,72 @@ def __metadata_api_lookup(name_parts: FileInfo, namer_config: NamerConfig, phash
 
 
 def __metadata_api_lookup_overparsed_name(results: List[ComparisonResult], name_parts: FileInfo, namer_config: NamerConfig, phash: Optional[PerceptualHash] = None) -> List[ComparisonResult]:
-    fallback_parts = build_overparsed_name_fallback(name_parts)
-    if fallback_parts is None:
-        return results
-
-    results = __update_results(results, fallback_parts, namer_config, scene_type=SceneType.SCENE, phash=phash, verified_site_context=False)
-    if not results or not results[0].is_match(target_distance=namer_config.phash_match_distance):
-        results = __update_results(results, fallback_parts, namer_config, scene_type=SceneType.MOVIE, phash=phash, verified_site_context=False)
+    for fallback_parts in build_overparsed_name_fallbacks(name_parts):
+        results = __update_results(results, fallback_parts, namer_config, scene_type=SceneType.SCENE, phash=phash, verified_site_context=False)
+        if not results or not results[0].is_match(target_distance=namer_config.phash_match_distance):
+            results = __update_results(results, fallback_parts, namer_config, scene_type=SceneType.MOVIE, phash=phash, verified_site_context=False)
 
     return results
 
 
 def build_overparsed_name_fallback(name_parts: Optional[FileInfo]) -> Optional[FileInfo]:
+    fallbacks = build_overparsed_name_fallbacks(name_parts)
+    return fallbacks[0] if fallbacks else None
+
+
+def build_overparsed_name_fallbacks(name_parts: Optional[FileInfo]) -> List[FileInfo]:
     """
-    Build a review-oriented name-only search when the parser likely treated a title
+    Build review-oriented name-only searches when the parser likely treated a title
     word or performer name as the site.
 
-    The returned FileInfo intentionally has no site/date. Its text results are not
-    considered verified matches; they only improve candidate discovery unless phash
-    verification succeeds.
+    The returned FileInfos intentionally have no site/date. Their text results are
+    not considered verified matches; they only improve candidate discovery unless
+    phash verification succeeds.
     """
     if not name_parts or not name_parts.site or not name_parts.name or name_parts.date:
-        return None
+        return []
 
+    names = _unique_non_empty(
+        [
+            _normalize_overparsed_search_text(' '.join([name_parts.site, name_parts.name])),
+            _normalize_overparsed_search_text(name_parts.name),
+        ]
+    )
+
+    return [_copy_overparsed_fallback(name_parts, name) for name in names]
+
+
+def _copy_overparsed_fallback(name_parts: FileInfo, name: str) -> FileInfo:
     fallback = FileInfo()
-    fallback.name = ' '.join([name_parts.site, name_parts.name]).strip()
+    fallback.name = name
     fallback.extension = name_parts.extension
     fallback.source_file_name = name_parts.source_file_name
     fallback.source_file_stem = name_parts.source_file_stem
     fallback.hashes = name_parts.hashes
     fallback.trans = name_parts.trans
     return fallback
+
+
+def _normalize_overparsed_search_text(text: Optional[str]) -> str:
+    if not text:
+        return ''
+
+    text = re.sub(r'[\[\]\(\)\{\}]', ' ', text)
+    text = re.sub(r'[_+]+', ' ', text)
+    text = re.sub(r'\s+', ' ', text.replace('.', ' ')).strip(' -')
+    return text.strip()
+
+
+def _unique_non_empty(values: Iterable[str]) -> List[str]:
+    seen = set()
+    unique = []
+    for value in values:
+        normalized = value.strip()
+        if normalized and normalized.lower() not in seen:
+            unique.append(normalized)
+            seen.add(normalized.lower())
+
+    return unique
 
 
 def __match_weight(result: ComparisonResult) -> float:
