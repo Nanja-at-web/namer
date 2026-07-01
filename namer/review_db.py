@@ -14,7 +14,7 @@ import orjson
 from loguru import logger
 
 from namer.command import Command
-from namer.comparison_results import ComparisonResults
+from namer.comparison_results import ComparisonResult, ComparisonResults
 from namer.videophash import PerceptualHash
 
 LOW_NAME_MATCH_TARGET = 90.0
@@ -66,11 +66,13 @@ def _ensure_schema(connection: sqlite3.Connection) -> None:
             status TEXT NOT NULL,
             reason TEXT,
             top_candidates TEXT,
+            selected_candidate TEXT,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
         """
     )
+    _ensure_column(connection, 'review_items', 'selected_candidate', 'TEXT')
     connection.execute('CREATE INDEX IF NOT EXISTS idx_review_source_path ON review_items(source_path)')
     connection.execute('CREATE INDEX IF NOT EXISTS idx_review_status ON review_items(status)')
     connection.execute(
@@ -90,31 +92,46 @@ def _ensure_schema(connection: sqlite3.Connection) -> None:
     connection.execute('CREATE INDEX IF NOT EXISTS idx_review_site_alias_suggestions_parsed_site ON review_site_alias_suggestions(parsed_site)')
 
 
+def _ensure_column(connection: sqlite3.Connection, table: str, column: str, definition: str) -> None:
+    columns = {row[1] for row in connection.execute(f'PRAGMA table_info({table})')}
+    if column not in columns:
+        connection.execute(f'ALTER TABLE {table} ADD COLUMN {column} {definition}')
+
+
+def _candidate_as_dict(result: ComparisonResult) -> Dict[str, Any]:
+    looked_up = result.looked_up
+    return {
+        'name': result.name,
+        'name_match': result.name_match,
+        'site_match': result.site_match,
+        'date_match': result.date_match,
+        'phash_distance': result.phash_distance,
+        'phash_duration': result.phash_duration,
+        'uuid': looked_up.uuid,
+        'guid': looked_up.guid,
+        'site': looked_up.site,
+        'date': looked_up.date,
+        'title': looked_up.name,
+        'source_url': looked_up.source_url,
+    }
+
+
 def _candidate_summary(search_results: Optional[ComparisonResults]) -> str:
     if not search_results:
         return '[]'
 
     candidates: List[Dict[str, Any]] = []
     for result in search_results.results[:5]:
-        looked_up = result.looked_up
-        candidates.append(
-            {
-                'name': result.name,
-                'name_match': result.name_match,
-                'site_match': result.site_match,
-                'date_match': result.date_match,
-                'phash_distance': result.phash_distance,
-                'phash_duration': result.phash_duration,
-                'uuid': looked_up.uuid,
-                'guid': looked_up.guid,
-                'site': looked_up.site,
-                'date': looked_up.date,
-                'title': looked_up.name,
-                'source_url': looked_up.source_url,
-            }
-        )
+        candidates.append(_candidate_as_dict(result))
 
     return _json_dumps(candidates)
+
+
+def _selected_candidate_summary(selected_match: Optional[ComparisonResult]) -> str:
+    if not selected_match:
+        return '{}'
+
+    return _json_dumps(_candidate_as_dict(selected_match))
 
 
 def classify_review_reason(command: Command, search_results: Optional[ComparisonResults]) -> str:
@@ -170,7 +187,7 @@ def _has_close_competing_candidate(results: list) -> bool:
 
 
 def _record_site_alias_suggestion(connection: sqlite3.Connection, command: Command, search_results: Optional[ComparisonResults], reason: str) -> None:
-    if reason != 'site_mismatch' or not search_results or not search_results.results:
+    if reason not in {'site_mismatch', 'site_missing_or_overparsed'} or not search_results or not search_results.results:
         return
 
     parsed_file = search_results.fileinfo or command.parsed_file
@@ -201,6 +218,7 @@ def record_review_item(
     search_results: Optional[ComparisonResults] = None,
     phash: Optional[PerceptualHash] = None,
     final_path: Optional[Path] = None,
+    selected_match: Optional[ComparisonResult] = None,
 ) -> None:
     if not command.config.review_database_enabled:
         return
@@ -214,9 +232,9 @@ def record_review_item(
                 INSERT INTO review_items (
                     source_path, current_path, final_path, original_parse_name, match_parse_name,
                     parsed_site, parsed_date, parsed_name, extension, phash, oshash,
-                    status, reason, top_candidates
+                    status, reason, top_candidates, selected_candidate
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     str(command.input_file) if command.input_file else None,
@@ -233,6 +251,7 @@ def record_review_item(
                     status,
                     reason,
                     _candidate_summary(search_results),
+                    _selected_candidate_summary(selected_match),
                 ),
             )
             _record_site_alias_suggestion(connection, command, search_results, reason)

@@ -10,7 +10,7 @@ import orjson
 
 from namer.comparison_results import ComparisonResult, ComparisonResults, LookedUpFileInfo
 from namer.fileinfo import FileInfo
-from namer.review_db import _candidate_summary, classify_review_reason
+from namer.review_db import _candidate_summary, _selected_candidate_summary, classify_review_reason
 
 
 class UnitTestAsTheDefaultExecution(unittest.TestCase):
@@ -46,6 +46,20 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
 
         self.assertEqual(candidates[0]['name_match'], 99.5)
         self.assertEqual(candidates[0]['phash_distance'], 0)
+
+    def test_selected_candidate_summary_records_actual_match(self):
+        selected = _result(site_match=False, date_match=False, name_match=90)
+        selected.phash_distance = numpy.int64(0)
+        selected.phash_duration = True
+
+        candidate = orjson.loads(_selected_candidate_summary(selected))
+
+        self.assertEqual(candidate['name_match'], 90)
+        self.assertEqual(candidate['phash_distance'], 0)
+        self.assertEqual(candidate['uuid'], 'scene-uuid')
+
+    def test_selected_candidate_summary_is_empty_without_match(self):
+        self.assertEqual(orjson.loads(_selected_candidate_summary(None)), {})
 
     def test_classify_review_reason_no_candidates(self):
         self.assertEqual(classify_review_reason(_command(), ComparisonResults([], _fileinfo())), 'no_candidates')

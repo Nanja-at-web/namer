@@ -177,6 +177,7 @@ def _process_file(command: Command) -> Optional[Command]:
         phash: Optional[PerceptualHash] = None
         ffprobe_results: Optional[FFProbeResults] = None
         new_metadata: Optional[LookedUpFileInfo] = None
+        selected_match: Optional[ComparisonResult] = None
         search_results: ComparisonResults = ComparisonResults([], None)
         # convert container type if requested.
         if command.config.convert_container_to and command.target_movie_file.suffix != command.config.convert_container_to:
@@ -214,6 +215,7 @@ def _process_file(command: Command) -> Optional[Command]:
             if search_results:
                 matched = search_results.get_match(command.config.phash_match_distance, command.config.allow_text_similarity_auto_write)
                 if matched:
+                    selected_match = matched
                     new_metadata = matched.looked_up
 
             if not command.target_movie_file:
@@ -270,7 +272,7 @@ def _process_file(command: Command) -> Optional[Command]:
                 tag_in_place(target.target_movie_file, command.config, new_metadata, ffprobe_results)
                 add_extra_artifacts(target.target_movie_file, new_metadata, search_results, phash, command.config)
                 send_webhook_notification(target.target_movie_file, command.config)
-                record_review_item(command, 'matched', '', search_results, phash, target.target_movie_file)
+                record_review_item(command, 'matched', '', search_results, phash, target.target_movie_file, selected_match)
                 logger.success('Done processing file: {}, moved to {}', command.target_movie_file, target.target_movie_file)
                 return target
         elif command.inplace is False:
