@@ -92,6 +92,20 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
         self.assertEqual(name.date, None)
         self.assertEqual(name.extension, 'mp4')
 
+    def test_parse_file_name_can_opt_into_ambiguous_day_first_date(self):
+        """
+        Test that ambiguous dates can be explicitly interpreted as day-first dates.
+        """
+        config = sample_config()
+        config.allow_ambiguous_day_first_dates = True
+
+        name = parse_file_name('EvilAngel.Carmela.Clutch.Fabulous.Anal.(03.04.2022).XXX.mp4', config)
+
+        self.assertEqual(name.site, 'EvilAngel')
+        self.assertEqual(name.date, '2022-04-03')
+        self.assertEqual(name.name, 'Carmela Clutch Fabulous Anal')
+        self.assertEqual(name.extension, 'mp4')
+
     def test_parse_file_name_no_date_ts_stamp(self):
         """
         Test standard name parsing.

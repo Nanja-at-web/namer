@@ -176,6 +176,10 @@ cleanup_remove_regex = \s*#[A-Za-z0-9_-]+, \b(?:web[-_. ]?dl|webrip|hdrip|bdrip|
 # candidate exists. Leave false for strict site+date+title or phash-only matching.
 allow_text_similarity_auto_write = False
 
+# Optional date parser fallback. When true, ambiguous dates like 03.04.2022 are
+# interpreted as day.month.year. Leave false if your filenames may use month.day.year.
+allow_ambiguous_day_first_dates = False
+
 [review]
 
 # Store processing outcomes and top candidates in a local SQLite database for manual review.

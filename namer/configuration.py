@@ -300,6 +300,11 @@ class NamerConfig:
     Allow a conservative no-date fallback when site matches and title similarity is very high and unambiguous.
     """
 
+    allow_ambiguous_day_first_dates: bool = False
+    """
+    Interpret ambiguous fallback dates such as 03.04.2022 as day-first dates.
+    """
+
     review_database_enabled: bool = False
     """
     Store processing outcomes in a small local review database.
@@ -670,6 +675,7 @@ class NamerConfig:
                 'cleanup_normalize_separators': self.cleanup_normalize_separators,
                 'cleanup_remove_regex': [regex.pattern for regex in self.cleanup_remove_regex],
                 'allow_text_similarity_auto_write': self.allow_text_similarity_auto_write,
+                'allow_ambiguous_day_first_dates': self.allow_ambiguous_day_first_dates,
             },
             'Review Config': {
                 'review_database_enabled': self.review_database_enabled,

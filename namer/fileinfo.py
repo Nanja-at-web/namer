@@ -15,6 +15,7 @@ from namer.videophash import PerceptualHash
 DEFAULT_REGEX_TOKENS = '{_site}{_sep}{_optional_date}{_ts}{_name}{_dot}{_ext}'
 YEAR_FIRST_DATE_RE = re.compile(r'(?<!\d)(?P<year>\d{2}|\d{4})[-._ ](?P<month>0?[1-9]|1[0-2])[-._ ](?P<day>0?[1-9]|[12]\d|3[01])(?!\d)')
 DAY_FIRST_UNAMBIGUOUS_DATE_RE = re.compile(r'(?<!\d)(?P<day>1[3-9]|[23]\d|3[01])[-._ ](?P<month>0?[1-9]|1[0-2])[-._ ](?P<year>\d{4})(?!\d)')
+DAY_FIRST_AMBIGUOUS_DATE_RE = re.compile(r'(?<!\d)(?P<day>0?[1-9]|1[0-2])[-._ ](?P<month>0?[1-9]|1[0-2])[-._ ](?P<year>\d{4})(?!\d)')
 
 
 @dataclass(init=False, repr=False, eq=True, order=False, unsafe_hash=True, frozen=False)
@@ -139,7 +140,7 @@ def parse_file_name(filename: str, namer_config: NamerConfig) -> FileInfo:
     filename = replace_abbreviations(filename, namer_config)
     regex = parser_config_to_regex(namer_config.name_parser)
     path = PurePath(filename)
-    fallback_date = _find_fallback_date_match(path.stem)
+    fallback_date = _find_fallback_date_match(path.stem, allow_ambiguous_day_first=namer_config.allow_ambiguous_day_first_dates)
     file_name_parts = FileInfo()
     file_name_parts.extension = path.suffix[1:]
     match = regex.search(filename)
@@ -149,7 +150,7 @@ def parse_file_name(filename: str, namer_config: NamerConfig) -> FileInfo:
         logger.debug('Could not parse target name which may be a file (or directory) name depending on settings and input: {}', filename)
 
     if fallback_date and (not file_name_parts.date or _site_looks_overparsed(file_name_parts.site)):
-        parse_path = PurePath(f'{_remove_fallback_date(path.stem)}{path.suffix}')
+        parse_path = PurePath(f'{_remove_fallback_date(path.stem, allow_ambiguous_day_first=namer_config.allow_ambiguous_day_first_dates)}{path.suffix}')
         fallback_match = regex.search(parse_path.name)
         if fallback_match:
             _apply_fileinfo_match(file_name_parts, fallback_match, namer_config, filename, path.stem)
@@ -196,17 +197,27 @@ def find_fallback_date(text: str) -> Optional[str]:
     return None
 
 
-def _find_fallback_date_match(text: str) -> Optional[re.Match]:
+def _find_fallback_date_match(text: str, allow_ambiguous_day_first: bool = False) -> Optional[re.Match]:
     match = YEAR_FIRST_DATE_RE.search(text)
     if match:
         return match
 
-    return DAY_FIRST_UNAMBIGUOUS_DATE_RE.search(text)
+    match = DAY_FIRST_UNAMBIGUOUS_DATE_RE.search(text)
+    if match:
+        return match
+
+    if allow_ambiguous_day_first:
+        return DAY_FIRST_AMBIGUOUS_DATE_RE.search(text)
+
+    return None
 
 
-def _remove_fallback_date(text: str) -> str:
+def _remove_fallback_date(text: str, allow_ambiguous_day_first: bool = False) -> str:
     text = YEAR_FIRST_DATE_RE.sub(' ', text, count=1)
-    return DAY_FIRST_UNAMBIGUOUS_DATE_RE.sub(' ', text, count=1)
+    text = DAY_FIRST_UNAMBIGUOUS_DATE_RE.sub(' ', text, count=1)
+    if allow_ambiguous_day_first:
+        text = DAY_FIRST_AMBIGUOUS_DATE_RE.sub(' ', text, count=1)
+    return text
 
 
 def _format_date(year: str, month: str, day: str) -> str:

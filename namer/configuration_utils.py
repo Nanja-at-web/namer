@@ -277,6 +277,7 @@ field_info: Dict[str, Tuple[str, Optional[Callable[[Optional[str]], Any]], Optio
     'cleanup_normalize_separators': ('matching', to_bool, from_bool),
     'cleanup_remove_regex': ('matching', to_regex_list, from_regex_list),
     'allow_text_similarity_auto_write': ('matching', to_bool, from_bool),
+    'allow_ambiguous_day_first_dates': ('matching', to_bool, from_bool),
     'review_database_enabled': ('review', to_bool, from_bool),
     'review_database_path': ('review', to_path, from_path),
     'search_phash': ('Phash', to_bool, from_bool),
