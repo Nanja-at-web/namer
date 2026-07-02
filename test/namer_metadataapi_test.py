@@ -11,7 +11,7 @@ from loguru import logger
 from namer.comparison_results import ComparisonResult, ComparisonResults, LookedUpFileInfo, SceneType
 from namer.fileinfo import parse_file_name
 from namer.command import make_command
-from namer.metadataapi import _add_or_replace_result, build_overparsed_name_fallback, build_overparsed_name_fallbacks, main, match
+from namer.metadataapi import _add_or_replace_result, _phash_duration_matches, build_overparsed_name_fallback, build_overparsed_name_fallbacks, main, match
 from test import utils
 from test.utils import environment, sample_config
 
@@ -255,6 +255,14 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
 
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].name_match, 99)
+
+    def test_phash_duration_tolerance_allows_small_difference(self):
+        self.assertTrue(_phash_duration_matches(1201, 1200, tolerance_seconds=2))
+        self.assertTrue(_phash_duration_matches(1198, 1200, tolerance_seconds=2))
+        self.assertFalse(_phash_duration_matches(1197, 1200, tolerance_seconds=2))
+
+    def test_phash_duration_tolerance_keeps_missing_candidate_duration_compatible(self):
+        self.assertTrue(_phash_duration_matches(None, 1200, tolerance_seconds=2))
 
     @mock.patch('sys.stdout', new_callable=io.StringIO)
     def test_main_metadataapi_net(self, mock_stdout):

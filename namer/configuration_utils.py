@@ -282,6 +282,7 @@ field_info: Dict[str, Tuple[str, Optional[Callable[[Optional[str]], Any]], Optio
     'review_database_path': ('review', to_path, from_path),
     'search_phash': ('Phash', to_bool, from_bool),
     'phash_match_distance': ('Phash', to_int, from_int),
+    'phash_duration_tolerance_seconds': ('Phash', to_int, from_int),
     'send_phash': ('Phash', to_bool, from_bool),
     'use_alt_phash_tool': ('Phash', to_bool, from_bool),
     'max_ffmpeg_workers': ('Phash', to_int, from_int),

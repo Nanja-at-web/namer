@@ -50,6 +50,7 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
         self.assertEqual(config.default_genre, 'Adult')
         self.assertEqual(config.cleanup_enabled, True)
         self.assertEqual(config.phash_match_distance, 4)
+        self.assertEqual(config.phash_duration_tolerance_seconds, 2)
         self.assertFalse(hasattr(config, 'dest_dir'))
         self.assertFalse(hasattr(config, 'failed_dir'))
         self.assertEqual(config.min_file_size, 300)

@@ -133,7 +133,7 @@ def __evaluate_match(name_parts: Optional[FileInfo], looked_up: LookedUpFileInfo
 
                     if scene_hash:
                         distance = phash.phash - imagehash.hex_to_hash(item.hash)
-                        duration = item.duration == phash.duration if item.duration else True
+                        duration = _phash_duration_matches(item.duration, phash.duration, namer_config.phash_duration_tolerance_seconds)
                         hashes_distances.append((distance, duration))
 
             phash_distance, phash_duration = min(hashes_distances) if hashes_distances else (None, None)
@@ -148,6 +148,13 @@ def __evaluate_match(name_parts: Optional[FileInfo], looked_up: LookedUpFileInfo
         phash_distance=phash_distance,
         phash_duration=phash_duration,
     )
+
+
+def _phash_duration_matches(candidate_duration: Optional[int], source_duration: Optional[int], tolerance_seconds: int = 0) -> bool:
+    if not candidate_duration or source_duration is None:
+        return True
+
+    return abs(candidate_duration - source_duration) <= tolerance_seconds
 
 
 def __update_results(

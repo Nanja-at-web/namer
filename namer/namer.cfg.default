@@ -196,6 +196,10 @@ search_phash = True
 # 0 means exact phash only. 4 is conservative for near-identical video fingerprints.
 phash_match_distance = 4
 
+# Maximum duration difference accepted as the same video for phash verification.
+# This allows small container/remux/rounding differences without accepting loose text matches.
+phash_duration_tolerance_seconds = 2
+
 # Should phashes be sent to tpdb if no phash match was found but a name match was.
 # Requires search_phash be true or is ignored.
 send_phash = False
