@@ -114,9 +114,9 @@ def __evaluate_match(name_parts: Optional[FileInfo], looked_up: LookedUpFileInfo
             if name_parts.name:
                 result = __attempt_better_match(result, unidecode(name_parts.name), all_performers, namer_config)
 
-    phash_distance, phash_duration = None, None
+    phash_distance, phash_duration, phash_duration_delta_seconds = None, None, None
     if phash:
-        hashes_distances: List[Tuple[int, bool]] = []
+        hashes_distances: List[Tuple[int, bool, Optional[int]]] = []
 
         if not looked_up.hashes:
             phash_distance = 8 if looked_up.found_via_phash() else None
@@ -134,9 +134,10 @@ def __evaluate_match(name_parts: Optional[FileInfo], looked_up: LookedUpFileInfo
                     if scene_hash:
                         distance = phash.phash - imagehash.hex_to_hash(item.hash)
                         duration = _phash_duration_matches(item.duration, phash.duration, namer_config.phash_duration_tolerance_seconds)
-                        hashes_distances.append((distance, duration))
+                        duration_delta_seconds = _phash_duration_delta_seconds(item.duration, phash.duration)
+                        hashes_distances.append((distance, duration, duration_delta_seconds))
 
-            phash_distance, phash_duration = min(hashes_distances) if hashes_distances else (None, None)
+            phash_distance, phash_duration, phash_duration_delta_seconds = min(hashes_distances) if hashes_distances else (None, None, None)
 
     return ComparisonResult(
         name=result[0],
@@ -147,14 +148,23 @@ def __evaluate_match(name_parts: Optional[FileInfo], looked_up: LookedUpFileInfo
         looked_up=looked_up,
         phash_distance=phash_distance,
         phash_duration=phash_duration,
+        phash_duration_delta_seconds=phash_duration_delta_seconds,
     )
 
 
-def _phash_duration_matches(candidate_duration: Optional[int], source_duration: Optional[int], tolerance_seconds: int = 0) -> bool:
+def _phash_duration_delta_seconds(candidate_duration: Optional[int], source_duration: Optional[int]) -> Optional[int]:
     if not candidate_duration or source_duration is None:
+        return None
+
+    return abs(candidate_duration - source_duration)
+
+
+def _phash_duration_matches(candidate_duration: Optional[int], source_duration: Optional[int], tolerance_seconds: int = 0) -> bool:
+    delta = _phash_duration_delta_seconds(candidate_duration, source_duration)
+    if delta is None:
         return True
 
-    return abs(candidate_duration - source_duration) <= tolerance_seconds
+    return delta <= tolerance_seconds
 
 
 def __update_results(

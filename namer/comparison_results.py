@@ -351,6 +351,11 @@ class ComparisonResult:
     Duration diff with phash duration.
     """
 
+    phash_duration_delta_seconds: Optional[int] = None
+    """
+    Absolute duration difference in seconds for phash comparison.
+    """
+
     def is_phash_match(self, target_distance: int = 0) -> bool:
         """
         Returns true if match is a phash match.
@@ -391,6 +396,7 @@ class ComparisonResult:
             'date_match': self.date_match,
             'phash_distance': self.phash_distance,
             'phash_duration': self.phash_duration,
+            'phash_duration_delta_seconds': self.phash_duration_delta_seconds,
         }
 
 

@@ -107,6 +107,7 @@ def _candidate_as_dict(result: ComparisonResult) -> Dict[str, Any]:
         'date_match': result.date_match,
         'phash_distance': result.phash_distance,
         'phash_duration': result.phash_duration,
+        'phash_duration_delta_seconds': result.phash_duration_delta_seconds,
         'uuid': looked_up.uuid,
         'guid': looked_up.guid,
         'site': looked_up.site,

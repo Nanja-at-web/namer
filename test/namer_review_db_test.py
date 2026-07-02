@@ -37,6 +37,7 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
                     looked_up=looked_up,
                     phash_distance=numpy.int64(0),
                     phash_duration=True,
+                    phash_duration_delta_seconds=numpy.int64(1),
                 )
             ],
             None,
@@ -46,6 +47,7 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
 
         self.assertEqual(candidates[0]['name_match'], 99.5)
         self.assertEqual(candidates[0]['phash_distance'], 0)
+        self.assertEqual(candidates[0]['phash_duration_delta_seconds'], 1)
 
     def test_selected_candidate_summary_records_actual_match(self):
         selected = _result(site_match=False, date_match=False, name_match=90)
