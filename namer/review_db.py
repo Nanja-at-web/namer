@@ -65,6 +65,9 @@ def _ensure_schema(connection: sqlite3.Connection) -> None:
             oshash TEXT,
             status TEXT NOT NULL,
             reason TEXT,
+            candidate_count INTEGER,
+            search_variant TEXT,
+            search_variants TEXT,
             top_candidates TEXT,
             selected_candidate TEXT,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -73,6 +76,9 @@ def _ensure_schema(connection: sqlite3.Connection) -> None:
         """
     )
     _ensure_column(connection, 'review_items', 'selected_candidate', 'TEXT')
+    _ensure_column(connection, 'review_items', 'candidate_count', 'INTEGER')
+    _ensure_column(connection, 'review_items', 'search_variant', 'TEXT')
+    _ensure_column(connection, 'review_items', 'search_variants', 'TEXT')
     connection.execute('CREATE INDEX IF NOT EXISTS idx_review_source_path ON review_items(source_path)')
     connection.execute('CREATE INDEX IF NOT EXISTS idx_review_status ON review_items(status)')
     connection.execute(
@@ -114,18 +120,48 @@ def _candidate_as_dict(result: ComparisonResult) -> Dict[str, Any]:
         'date': looked_up.date,
         'title': looked_up.name,
         'source_url': looked_up.source_url,
+        'search_variant': result.search_variant,
+        'search_scene_type': result.search_scene_type,
+        'search_parse_site': result.name_parts.site if result.name_parts else None,
+        'search_parse_date': result.name_parts.date if result.name_parts else None,
+        'search_parse_name': result.name_parts.name if result.name_parts else None,
     }
 
 
-def _candidate_summary(search_results: Optional[ComparisonResults]) -> str:
+def _candidate_summary(search_results: Optional[ComparisonResults], candidate_limit: int = 5) -> str:
     if not search_results:
         return '[]'
 
     candidates: List[Dict[str, Any]] = []
-    for result in search_results.results[:5]:
+    for result in search_results.results[:max(candidate_limit, 0)]:
         candidates.append(_candidate_as_dict(result))
 
     return _json_dumps(candidates)
+
+
+def _candidate_count(search_results: Optional[ComparisonResults]) -> int:
+    return len(search_results.results) if search_results else 0
+
+
+def _top_search_variant(search_results: Optional[ComparisonResults]) -> Optional[str]:
+    if not search_results or not search_results.results:
+        return None
+
+    return search_results.results[0].search_variant
+
+
+def _search_variants_summary(search_results: Optional[ComparisonResults]) -> str:
+    if not search_results:
+        return '[]'
+
+    variants: List[str] = []
+    seen = set()
+    for result in search_results.results:
+        if result.search_variant and result.search_variant not in seen:
+            variants.append(result.search_variant)
+            seen.add(result.search_variant)
+
+    return _json_dumps(variants)
 
 
 def _selected_candidate_summary(selected_match: Optional[ComparisonResult]) -> str:
@@ -233,9 +269,9 @@ def record_review_item(
                 INSERT INTO review_items (
                     source_path, current_path, final_path, original_parse_name, match_parse_name,
                     parsed_site, parsed_date, parsed_name, extension, phash, oshash,
-                    status, reason, top_candidates, selected_candidate
+                    status, reason, candidate_count, search_variant, search_variants, top_candidates, selected_candidate
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     str(command.input_file) if command.input_file else None,
@@ -251,7 +287,10 @@ def record_review_item(
                     phash.oshash if phash else None,
                     status,
                     reason,
-                    _candidate_summary(search_results),
+                    _candidate_count(search_results),
+                    _top_search_variant(search_results),
+                    _search_variants_summary(search_results),
+                    _candidate_summary(search_results, command.config.review_candidate_limit),
                     _selected_candidate_summary(selected_match),
                 ),
             )

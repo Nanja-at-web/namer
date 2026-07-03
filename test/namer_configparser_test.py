@@ -38,11 +38,13 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
         namer_config.cleanup_enabled = True
         namer_config.allow_ambiguous_day_first_dates = True
         namer_config.review_database_enabled = True
+        namer_config.review_candidate_limit = 20
         ini_content = to_ini(namer_config)
         self.assertIn('sites_with_no_date_info = badsite', ini_content.splitlines())
         self.assertIn('cleanup_enabled = True', ini_content.splitlines())
         self.assertIn('allow_ambiguous_day_first_dates = True', ini_content.splitlines())
         self.assertIn('review_database_enabled = True', ini_content.splitlines())
+        self.assertIn('review_candidate_limit = 20', ini_content.splitlines())
 
         updated = ConfigUpdater(allow_no_value=True)
         lines = ini_content.splitlines()

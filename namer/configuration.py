@@ -315,6 +315,11 @@ class NamerConfig:
     SQLite database used for local review of failed or uncertain matches.
     """
 
+    review_candidate_limit: int = 20
+    """
+    Number of ranked candidates to store in the local review database.
+    """
+
     override_tpdb_address: str = 'https://api.theporndb.net'
     """
     Used only for testing, can override the location of the porn database - usually to point at a locally
@@ -686,6 +691,7 @@ class NamerConfig:
             'Review Config': {
                 'review_database_enabled': self.review_database_enabled,
                 'review_database_path': str(self.review_database_path),
+                'review_candidate_limit': self.review_candidate_limit,
             },
             'Tagging Config': {
                 'write_nfo': self.write_nfo,

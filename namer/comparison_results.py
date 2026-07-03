@@ -356,6 +356,16 @@ class ComparisonResult:
     Absolute duration difference in seconds for phash comparison.
     """
 
+    search_variant: Optional[str] = None
+    """
+    Search strategy that produced this candidate. Observational only.
+    """
+
+    search_scene_type: Optional[str] = None
+    """
+    API scene type used for the candidate search. Observational only.
+    """
+
     def is_phash_match(self, target_distance: int = 0) -> bool:
         """
         Returns true if match is a phash match.
@@ -397,6 +407,8 @@ class ComparisonResult:
             'phash_distance': self.phash_distance,
             'phash_duration': self.phash_duration,
             'phash_duration_delta_seconds': self.phash_duration_delta_seconds,
+            'search_variant': self.search_variant,
+            'search_scene_type': self.search_scene_type,
         }
 
 

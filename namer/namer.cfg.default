@@ -188,6 +188,10 @@ review_database_enabled = False
 # Local review database path.
 review_database_path = ./database/review.sqlite
 
+# Number of ranked candidates to store in the review database.
+# Higher values are useful for diagnostics; matching rules remain unchanged.
+review_candidate_limit = 20
+
 [Phash]
 # Calculate and use phashes in search for matches
 search_phash = True

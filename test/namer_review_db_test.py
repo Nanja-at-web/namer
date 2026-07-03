@@ -48,6 +48,15 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
         self.assertEqual(candidates[0]['name_match'], 99.5)
         self.assertEqual(candidates[0]['phash_distance'], 0)
         self.assertEqual(candidates[0]['phash_duration_delta_seconds'], 1)
+        self.assertIn('search_variant', candidates[0])
+        self.assertIn('search_parse_name', candidates[0])
+
+    def test_candidate_summary_respects_candidate_limit(self):
+        results = ComparisonResults([_result(name_match=99), _result(name_match=98), _result(name_match=97)], None)
+
+        candidates = orjson.loads(_candidate_summary(results, candidate_limit=2))
+
+        self.assertEqual(len(candidates), 2)
 
     def test_selected_candidate_summary_records_actual_match(self):
         selected = _result(site_match=False, date_match=False, name_match=90)

@@ -280,6 +280,7 @@ field_info: Dict[str, Tuple[str, Optional[Callable[[Optional[str]], Any]], Optio
     'allow_ambiguous_day_first_dates': ('matching', to_bool, from_bool),
     'review_database_enabled': ('review', to_bool, from_bool),
     'review_database_path': ('review', to_path, from_path),
+    'review_candidate_limit': ('review', to_int, from_int),
     'search_phash': ('Phash', to_bool, from_bool),
     'phash_match_distance': ('Phash', to_int, from_int),
     'phash_duration_tolerance_seconds': ('Phash', to_int, from_int),
