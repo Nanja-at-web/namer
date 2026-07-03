@@ -2,7 +2,7 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path, PurePath
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from pathvalidate import Platform, sanitize_filename
 
@@ -416,6 +416,7 @@ class ComparisonResult:
 class ComparisonResults:
     results: List[ComparisonResult]
     fileinfo: Optional[FileInfo]
+    search_attempts: List[Dict[str, Any]] = field(default_factory=list)
 
     def get_match(self, target_distance: int = 0, allow_text_similarity_auto_write: bool = False) -> Optional[ComparisonResult]:
         match = None

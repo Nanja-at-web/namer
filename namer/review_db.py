@@ -68,6 +68,7 @@ def _ensure_schema(connection: sqlite3.Connection) -> None:
             candidate_count INTEGER,
             search_variant TEXT,
             search_variants TEXT,
+            search_attempts TEXT,
             top_candidates TEXT,
             selected_candidate TEXT,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -79,6 +80,7 @@ def _ensure_schema(connection: sqlite3.Connection) -> None:
     _ensure_column(connection, 'review_items', 'candidate_count', 'INTEGER')
     _ensure_column(connection, 'review_items', 'search_variant', 'TEXT')
     _ensure_column(connection, 'review_items', 'search_variants', 'TEXT')
+    _ensure_column(connection, 'review_items', 'search_attempts', 'TEXT')
     connection.execute('CREATE INDEX IF NOT EXISTS idx_review_source_path ON review_items(source_path)')
     connection.execute('CREATE INDEX IF NOT EXISTS idx_review_status ON review_items(status)')
     connection.execute(
@@ -162,6 +164,13 @@ def _search_variants_summary(search_results: Optional[ComparisonResults]) -> str
             seen.add(result.search_variant)
 
     return _json_dumps(variants)
+
+
+def _search_attempts_summary(search_results: Optional[ComparisonResults]) -> str:
+    if not search_results:
+        return '[]'
+
+    return _json_dumps(search_results.search_attempts)
 
 
 def _selected_candidate_summary(selected_match: Optional[ComparisonResult]) -> str:
@@ -269,9 +278,9 @@ def record_review_item(
                 INSERT INTO review_items (
                     source_path, current_path, final_path, original_parse_name, match_parse_name,
                     parsed_site, parsed_date, parsed_name, extension, phash, oshash,
-                    status, reason, candidate_count, search_variant, search_variants, top_candidates, selected_candidate
+                    status, reason, candidate_count, search_variant, search_variants, search_attempts, top_candidates, selected_candidate
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     str(command.input_file) if command.input_file else None,
@@ -290,6 +299,7 @@ def record_review_item(
                     _candidate_count(search_results),
                     _top_search_variant(search_results),
                     _search_variants_summary(search_results),
+                    _search_attempts_summary(search_results),
                     _candidate_summary(search_results, command.config.review_candidate_limit),
                     _selected_candidate_summary(selected_match),
                 ),

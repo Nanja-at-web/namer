@@ -169,6 +169,7 @@ def _phash_duration_matches(candidate_duration: Optional[int], source_duration: 
 
 def __update_results(
     results: List[ComparisonResult],
+    search_attempts: List[dict],
     name_parts: Optional[FileInfo],
     namer_config: NamerConfig,
     skip_date: bool = False,
@@ -179,33 +180,39 @@ def __update_results(
     search_variant: str = 'primary',
 ):
     if not results or not results[0].is_match(target_distance=namer_config.phash_match_distance):
-        for match_attempt in __get_metadataapi_net_fileinfo(name_parts, namer_config, skip_date, skip_name, scene_type=scene_type, phash=phash):
+        match_attempts = __get_metadataapi_net_fileinfo(name_parts, namer_config, skip_date, skip_name, scene_type=scene_type, phash=phash)
+        variant = _search_variant_name(search_variant, scene_type, phash=phash, skip_date=skip_date, skip_name=skip_name)
+        _record_search_attempt(search_attempts, variant, name_parts, scene_type, len(match_attempts), phash=phash, skip_date=skip_date, skip_name=skip_name)
+        for match_attempt in match_attempts:
             result: ComparisonResult = __evaluate_match(name_parts, match_attempt, namer_config, phash)
             if not verified_site_context:
                 result.site_match = False
-            _annotate_search_variant(result, search_variant, scene_type, phash=phash, skip_date=skip_date, skip_name=skip_name)
+            _annotate_search_variant(result, variant, scene_type)
             _add_or_replace_result(results, result)
 
-        for match_attempt in __get_metadataapi_net_fileinfo(name_parts, namer_config, skip_date, skip_name, scene_type=scene_type):
-            result: ComparisonResult = __evaluate_match(name_parts, match_attempt, namer_config, phash)
-            if not verified_site_context:
-                result.site_match = False
-            _annotate_search_variant(result, search_variant, scene_type, phash=None, skip_date=skip_date, skip_name=skip_name)
-            _add_or_replace_result(results, result)
+        if phash:
+            text_match_attempts = __get_metadataapi_net_fileinfo(name_parts, namer_config, skip_date, skip_name, scene_type=scene_type)
+            text_variant = _search_variant_name(search_variant, scene_type, phash=None, skip_date=skip_date, skip_name=skip_name)
+            _record_search_attempt(search_attempts, text_variant, name_parts, scene_type, len(text_match_attempts), phash=None, skip_date=skip_date, skip_name=skip_name)
+            for match_attempt in text_match_attempts:
+                result: ComparisonResult = __evaluate_match(name_parts, match_attempt, namer_config, phash)
+                if not verified_site_context:
+                    result.site_match = False
+                _annotate_search_variant(result, text_variant, scene_type)
+                _add_or_replace_result(results, result)
 
         results = sorted(results, key=__match_weight, reverse=True)
 
     return results
 
 
-def _annotate_search_variant(
-    result: ComparisonResult,
+def _search_variant_name(
     search_variant: str,
     scene_type: SceneType,
     phash: Optional[PerceptualHash] = None,
     skip_date: bool = False,
     skip_name: bool = False,
-) -> None:
+) -> str:
     details = [search_variant, scene_type.value.lower()]
     if phash:
         details.append('phash')
@@ -214,7 +221,42 @@ def _annotate_search_variant(
     if skip_name:
         details.append('no_name')
 
-    result.search_variant = ':'.join(details)
+    return ':'.join(details)
+
+
+def _record_search_attempt(
+    search_attempts: List[dict],
+    variant: str,
+    name_parts: Optional[FileInfo],
+    scene_type: SceneType,
+    result_count: int,
+    phash: Optional[PerceptualHash] = None,
+    skip_date: bool = False,
+    skip_name: bool = False,
+) -> None:
+    search_attempts.append(
+        {
+            'variant': variant,
+            'scene_type': scene_type.value,
+            'result_count': result_count,
+            'used_phash': bool(phash),
+            'skip_date': skip_date,
+            'skip_name': skip_name,
+            'has_site': bool(name_parts and name_parts.site),
+            'has_date': bool(name_parts and name_parts.date and not skip_date),
+            'has_name': bool(name_parts and name_parts.name and not skip_name),
+            'parse_site_len': len(name_parts.site) if name_parts and name_parts.site else 0,
+            'parse_name_len': len(name_parts.name) if name_parts and name_parts.name else 0,
+        }
+    )
+
+
+def _annotate_search_variant(
+    result: ComparisonResult,
+    variant: str,
+    scene_type: SceneType,
+) -> None:
+    result.search_variant = variant
     result.search_scene_type = scene_type.value
 
 
@@ -228,44 +270,47 @@ def _add_or_replace_result(results: List[ComparisonResult], candidate: Compariso
     results.append(candidate)
 
 
-def __metadata_api_lookup_type(results: List[ComparisonResult], name_parts: Optional[FileInfo], namer_config: NamerConfig, scene_type: SceneType, phash: Optional[PerceptualHash] = None) -> List[ComparisonResult]:
-    results = __update_results(results, name_parts, namer_config, scene_type=scene_type, phash=phash, search_variant='primary')
-    results = __update_results(results, name_parts, namer_config, skip_name=True, scene_type=scene_type, phash=phash, search_variant='primary')
+def __metadata_api_lookup_type(results: List[ComparisonResult], search_attempts: List[dict], name_parts: Optional[FileInfo], namer_config: NamerConfig, scene_type: SceneType, phash: Optional[PerceptualHash] = None) -> List[ComparisonResult]:
+    results = __update_results(results, search_attempts, name_parts, namer_config, scene_type=scene_type, phash=phash, search_variant='primary')
+    results = __update_results(results, search_attempts, name_parts, namer_config, skip_name=True, scene_type=scene_type, phash=phash, search_variant='primary')
 
     if phash:
-        results = __update_results(results, name_parts, namer_config, scene_type=scene_type, search_variant='primary')
-        results = __update_results(results, name_parts, namer_config, skip_name=True, scene_type=scene_type, search_variant='primary')
+        results = __update_results(results, search_attempts, name_parts, namer_config, scene_type=scene_type, search_variant='primary')
+        results = __update_results(results, search_attempts, name_parts, namer_config, skip_name=True, scene_type=scene_type, search_variant='primary')
 
     if name_parts and name_parts.date:
-        results = __update_results(results, name_parts, namer_config, skip_date=True, scene_type=scene_type, search_variant='date_fallback')
-        results = __update_results(results, name_parts, namer_config, skip_date=True, skip_name=True, scene_type=scene_type, search_variant='date_fallback')
+        results = __update_results(results, search_attempts, name_parts, namer_config, skip_date=True, scene_type=scene_type, search_variant='date_fallback')
+        results = __update_results(results, search_attempts, name_parts, namer_config, skip_date=True, skip_name=True, scene_type=scene_type, search_variant='date_fallback')
 
     return results
 
 
-def __metadata_api_lookup(name_parts: FileInfo, namer_config: NamerConfig, phash: Optional[PerceptualHash] = None) -> List[ComparisonResult]:
+def __metadata_api_lookup(name_parts: FileInfo, namer_config: NamerConfig, phash: Optional[PerceptualHash] = None, search_attempts: Optional[List[dict]] = None) -> List[ComparisonResult]:
+    if search_attempts is None:
+        search_attempts = []
+
     scene_type: SceneType = SceneType.SCENE
     if name_parts.site:  # noqa: SIM102
         if name_parts.site.strip().lower() in namer_config.movie_data_preferred:
             scene_type = SceneType.MOVIE
 
     results: List[ComparisonResult] = []
-    results: List[ComparisonResult] = __metadata_api_lookup_type(results, name_parts, namer_config, scene_type, phash)
+    results: List[ComparisonResult] = __metadata_api_lookup_type(results, search_attempts, name_parts, namer_config, scene_type, phash)
     if not results or not results[0].is_match(target_distance=namer_config.phash_match_distance):
         scene_type = SceneType.MOVIE if scene_type == SceneType.SCENE else SceneType.SCENE
-        results: List[ComparisonResult] = __metadata_api_lookup_type(results, name_parts, namer_config, scene_type, phash)
+        results: List[ComparisonResult] = __metadata_api_lookup_type(results, search_attempts, name_parts, namer_config, scene_type, phash)
 
     if not results or not results[0].is_match(target_distance=namer_config.phash_match_distance):
-        results = __metadata_api_lookup_overparsed_name(results, name_parts, namer_config, phash)
+        results = __metadata_api_lookup_overparsed_name(results, search_attempts, name_parts, namer_config, phash)
 
     return results
 
 
-def __metadata_api_lookup_overparsed_name(results: List[ComparisonResult], name_parts: FileInfo, namer_config: NamerConfig, phash: Optional[PerceptualHash] = None) -> List[ComparisonResult]:
+def __metadata_api_lookup_overparsed_name(results: List[ComparisonResult], search_attempts: List[dict], name_parts: FileInfo, namer_config: NamerConfig, phash: Optional[PerceptualHash] = None) -> List[ComparisonResult]:
     for fallback_parts in build_overparsed_name_fallbacks(name_parts):
-        results = __update_results(results, fallback_parts, namer_config, scene_type=SceneType.SCENE, phash=phash, verified_site_context=False, search_variant='overparsed_site_fallback')
+        results = __update_results(results, search_attempts, fallback_parts, namer_config, scene_type=SceneType.SCENE, phash=phash, verified_site_context=False, search_variant='overparsed_site_fallback')
         if not results or not results[0].is_match(target_distance=namer_config.phash_match_distance):
-            results = __update_results(results, fallback_parts, namer_config, scene_type=SceneType.MOVIE, phash=phash, verified_site_context=False, search_variant='overparsed_site_fallback')
+            results = __update_results(results, search_attempts, fallback_parts, namer_config, scene_type=SceneType.MOVIE, phash=phash, verified_site_context=False, search_variant='overparsed_site_fallback')
 
     return results
 
@@ -678,10 +723,11 @@ def match(file_name_parts: Optional[FileInfo], namer_config: NamerConfig, phash:
     Matches will appear first.
     """
     results: List[ComparisonResult] = []
+    search_attempts: List[dict] = []
     if not file_name_parts:
-        results = __metadata_api_lookup_type(results, None, namer_config, SceneType.SCENE, phash)
+        results = __metadata_api_lookup_type(results, search_attempts, None, namer_config, SceneType.SCENE, phash)
     else:
-        results: List[ComparisonResult] = __metadata_api_lookup(file_name_parts, namer_config, phash)
+        results: List[ComparisonResult] = __metadata_api_lookup(file_name_parts, namer_config, phash, search_attempts)
 
     comparison_results = sorted(results, key=__match_weight, reverse=True)
 
@@ -696,7 +742,7 @@ def match(file_name_parts: Optional[FileInfo], namer_config: NamerConfig, phash:
                     file_infos.original_query = comparison_result.looked_up.original_query
                     comparison_result.looked_up = file_infos
 
-    return ComparisonResults(comparison_results, file_name_parts)
+    return ComparisonResults(comparison_results, file_name_parts, search_attempts)
 
 
 def toggle_collected(metadata: LookedUpFileInfo, config: NamerConfig):

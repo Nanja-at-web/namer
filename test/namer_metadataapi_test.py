@@ -279,6 +279,19 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
         self.assertEqual(results.results[0].looked_up.uuid, 'text-uuid')
         self.assertEqual(results.results[1].looked_up.name, 'Complete PHASH Match')
 
+    @mock.patch('namer.metadataapi.__get_metadataapi_net_fileinfo')
+    def test_match_records_search_attempts_without_candidates(self, mock_lookup):
+        config = sample_config()
+        fileinfo = parse_file_name('Example.Scene.Title.mp4', config)
+        mock_lookup.return_value = []
+
+        results = match(fileinfo, config)
+
+        self.assertEqual(results.results, [])
+        self.assertGreater(len(results.search_attempts), 0)
+        self.assertEqual(results.search_attempts[0]['result_count'], 0)
+        self.assertIn('variant', results.search_attempts[0])
+
     def test_phash_duration_tolerance_allows_small_difference(self):
         self.assertTrue(_phash_duration_matches(1201, 1200, tolerance_seconds=2))
         self.assertTrue(_phash_duration_matches(1198, 1200, tolerance_seconds=2))
