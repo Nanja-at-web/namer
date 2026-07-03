@@ -4,6 +4,7 @@ Test namer_metadataapi_test.py
 
 import io
 import unittest
+from types import SimpleNamespace
 from unittest import mock
 
 from loguru import logger
@@ -291,6 +292,20 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
         self.assertGreater(len(results.search_attempts), 0)
         self.assertEqual(results.search_attempts[0]['result_count'], 0)
         self.assertIn('variant', results.search_attempts[0])
+
+    @mock.patch('namer.metadataapi.__get_metadataapi_net_fileinfo')
+    def test_match_does_not_duplicate_phash_no_name_search_attempts(self, mock_lookup):
+        config = sample_config()
+        fileinfo = parse_file_name('Example.Scene.Title.mp4', config)
+        phash = SimpleNamespace(phash='abc123', duration=1200)
+        mock_lookup.return_value = []
+
+        results = match(fileinfo, config, phash=phash)
+
+        variants = [attempt['variant'] for attempt in results.search_attempts]
+        self.assertIn('primary:scene:phash', variants)
+        self.assertIn('primary:scene:no_name', variants)
+        self.assertNotIn('primary:scene:phash:no_name', variants)
 
     def test_phash_duration_tolerance_allows_small_difference(self):
         self.assertTrue(_phash_duration_matches(1201, 1200, tolerance_seconds=2))

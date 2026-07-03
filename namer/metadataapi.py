@@ -272,7 +272,8 @@ def _add_or_replace_result(results: List[ComparisonResult], candidate: Compariso
 
 def __metadata_api_lookup_type(results: List[ComparisonResult], search_attempts: List[dict], name_parts: Optional[FileInfo], namer_config: NamerConfig, scene_type: SceneType, phash: Optional[PerceptualHash] = None) -> List[ComparisonResult]:
     results = __update_results(results, search_attempts, name_parts, namer_config, scene_type=scene_type, phash=phash, search_variant='primary')
-    results = __update_results(results, search_attempts, name_parts, namer_config, skip_name=True, scene_type=scene_type, phash=phash, search_variant='primary')
+    if not phash:
+        results = __update_results(results, search_attempts, name_parts, namer_config, skip_name=True, scene_type=scene_type, search_variant='primary')
 
     if phash:
         results = __update_results(results, search_attempts, name_parts, namer_config, scene_type=scene_type, search_variant='primary')
