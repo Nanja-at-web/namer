@@ -27,6 +27,7 @@ from namer.comparison_results import ComparisonResult, ComparisonResults, HashTy
 from namer.configuration import NamerConfig
 from namer.configuration_utils import default_config, verify_configuration
 from namer.fileinfo import FileInfo
+from namer.filename_cleanup import cleanup_filename_for_matching
 from namer.http import Http, RequestType
 from namer.name_formatter import PartialFormatter
 from namer.videophash import imagehash, PerceptualHash
@@ -308,10 +309,10 @@ def __metadata_api_lookup(name_parts: FileInfo, namer_config: NamerConfig, phash
 
 
 def __metadata_api_lookup_overparsed_name(results: List[ComparisonResult], search_attempts: List[dict], name_parts: FileInfo, namer_config: NamerConfig, phash: Optional[PerceptualHash] = None) -> List[ComparisonResult]:
-    for fallback_parts in build_overparsed_name_fallbacks(name_parts):
-        results = __update_results(results, search_attempts, fallback_parts, namer_config, scene_type=SceneType.SCENE, phash=phash, verified_site_context=False, search_variant='overparsed_site_fallback')
+    for fallback_parts in build_site_repair_fallbacks(name_parts, namer_config):
+        results = __update_results(results, search_attempts, fallback_parts, namer_config, scene_type=SceneType.SCENE, phash=phash, verified_site_context=False, search_variant='site_repair')
         if not results or not results[0].is_match(target_distance=namer_config.phash_match_distance):
-            results = __update_results(results, search_attempts, fallback_parts, namer_config, scene_type=SceneType.MOVIE, phash=phash, verified_site_context=False, search_variant='overparsed_site_fallback')
+            results = __update_results(results, search_attempts, fallback_parts, namer_config, scene_type=SceneType.MOVIE, phash=phash, verified_site_context=False, search_variant='site_repair')
 
     return results
 
@@ -341,6 +342,37 @@ def build_overparsed_name_fallbacks(name_parts: Optional[FileInfo]) -> List[File
     )
 
     return [_copy_overparsed_fallback(name_parts, name) for name in names]
+
+
+def build_site_repair_fallbacks(name_parts: Optional[FileInfo], namer_config: NamerConfig) -> List[FileInfo]:
+    """
+    Build no-site searches when the parser likely treated a title word or performer
+    name as the site. This improves discovery only; text results remain unverified.
+    """
+    if not name_parts or not name_parts.site or not name_parts.name or name_parts.date:
+        return []
+
+    source_search_text = _source_stem_search_text(name_parts, namer_config)
+    names = _unique_non_empty(
+        [
+            source_search_text,
+            _normalize_overparsed_search_text(' '.join([name_parts.site, name_parts.name])),
+            _normalize_overparsed_search_text(name_parts.name),
+        ]
+    )
+
+    return [_copy_overparsed_fallback(name_parts, name) for name in names]
+
+
+def _source_stem_search_text(name_parts: FileInfo, namer_config: NamerConfig) -> str:
+    if not name_parts.source_file_stem:
+        return ''
+
+    extension = name_parts.extension or 'mp4'
+    source_name = f'{name_parts.source_file_stem}.{extension}'
+    cleaned = cleanup_filename_for_matching(source_name, namer_config.cleanup_remove_regex, namer_config.cleanup_normalize_separators)
+    source_stem = Path(cleaned).stem
+    return _normalize_overparsed_search_text(source_stem)
 
 
 def _copy_overparsed_fallback(name_parts: FileInfo, name: str) -> FileInfo:

@@ -12,7 +12,7 @@ from loguru import logger
 from namer.comparison_results import ComparisonResult, ComparisonResults, LookedUpFileInfo, SceneType
 from namer.fileinfo import parse_file_name
 from namer.command import make_command
-from namer.metadataapi import _add_or_replace_result, _phash_duration_delta_seconds, _phash_duration_matches, build_overparsed_name_fallback, build_overparsed_name_fallbacks, main, match
+from namer.metadataapi import _add_or_replace_result, _phash_duration_delta_seconds, _phash_duration_matches, build_overparsed_name_fallback, build_overparsed_name_fallbacks, build_site_repair_fallbacks, main, match
 from test import utils
 from test.utils import environment, sample_config
 
@@ -227,6 +227,18 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
 
         self.assertEqual(fallbacks[0].name, 'New Scene Title Part')
 
+    def test_build_site_repair_fallbacks_uses_cleaned_original_stem(self):
+        config = sample_config()
+        name = parse_file_name('New.Scene.Title.Part.#big.WEBDL.x264.1080p.mp4', config)
+
+        fallbacks = build_site_repair_fallbacks(name, config)
+
+        self.assertGreater(len(fallbacks), 0)
+        self.assertEqual(fallbacks[0].name, 'New Scene Title Part')
+        for fallback in fallbacks:
+            self.assertIsNone(fallback.site)
+            self.assertIsNone(fallback.date)
+
     def test_overparsed_name_fallback_does_not_allow_text_auto_match(self):
         name = parse_file_name('New.Scene.Title.1080p.mp4', sample_config())
         fallback = build_overparsed_name_fallback(name)
@@ -306,6 +318,18 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
         self.assertIn('primary:scene:phash', variants)
         self.assertIn('primary:scene:no_name', variants)
         self.assertNotIn('primary:scene:phash:no_name', variants)
+
+    @mock.patch('namer.metadataapi.__get_metadataapi_net_fileinfo')
+    def test_match_records_site_repair_search_attempts(self, mock_lookup):
+        config = sample_config()
+        fileinfo = parse_file_name('New.Scene.Title.mp4', config)
+        mock_lookup.return_value = []
+
+        results = match(fileinfo, config)
+
+        variants = [attempt['variant'] for attempt in results.search_attempts]
+        self.assertIn('site_repair:scene', variants)
+        self.assertIn('site_repair:movie', variants)
 
     def test_phash_duration_tolerance_allows_small_difference(self):
         self.assertTrue(_phash_duration_matches(1201, 1200, tolerance_seconds=2))
