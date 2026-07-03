@@ -256,6 +256,29 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].name_match, 99)
 
+    @mock.patch('namer.metadataapi.get_complete_metadataapi_net_fileinfo')
+    @mock.patch('namer.metadataapi.__metadata_api_lookup')
+    def test_match_loads_complete_metadata_for_actual_matched_candidate(self, mock_lookup, mock_complete):
+        config = sample_config()
+        fileinfo = parse_file_name('Example.Scene.Title.mp4', config)
+        text_only_candidate = _comparison_result(uuid='text-uuid', name_match=100, site_match=True, date_match=False, name_parts=fileinfo)
+        phash_candidate = _comparison_result(uuid='phash-uuid', name_match=80, site_match=False, date_match=False, name_parts=fileinfo)
+        phash_candidate.phash_distance = 4
+        phash_candidate.phash_duration = True
+
+        complete = LookedUpFileInfo()
+        complete.uuid = 'phash-uuid'
+        complete.name = 'Complete PHASH Match'
+
+        mock_lookup.return_value = [text_only_candidate, phash_candidate]
+        mock_complete.return_value = complete
+
+        results = match(fileinfo, config)
+
+        mock_complete.assert_called_once_with(fileinfo, 'phash-uuid', config)
+        self.assertEqual(results.results[0].looked_up.uuid, 'text-uuid')
+        self.assertEqual(results.results[1].looked_up.name, 'Complete PHASH Match')
+
     def test_phash_duration_tolerance_allows_small_difference(self):
         self.assertTrue(_phash_duration_matches(1201, 1200, tolerance_seconds=2))
         self.assertTrue(_phash_duration_matches(1198, 1200, tolerance_seconds=2))

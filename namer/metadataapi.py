@@ -689,12 +689,12 @@ def match(file_name_parts: Optional[FileInfo], namer_config: NamerConfig, phash:
     # with the uuid of the best match.
     for comparison_result in comparison_results:
         if comparison_result.is_match(target_distance=namer_config.phash_match_distance):
-            uuid = comparison_results[0].looked_up.uuid
+            uuid = comparison_result.looked_up.uuid
             if uuid:
                 file_infos: Optional[LookedUpFileInfo] = get_complete_metadataapi_net_fileinfo(file_name_parts, uuid, namer_config)
                 if file_infos:
-                    file_infos.original_query = comparison_results[0].looked_up.original_query
-                    comparison_results[0].looked_up = file_infos
+                    file_infos.original_query = comparison_result.looked_up.original_query
+                    comparison_result.looked_up = file_infos
 
     return ComparisonResults(comparison_results, file_name_parts)
 
