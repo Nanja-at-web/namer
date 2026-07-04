@@ -154,11 +154,13 @@ class FakeTPDB(ParrotWebServer):
         self.add_evil_angel('/scenes?parse=evilangel.2022-01-03.&limit=25')
         # Extra Metadata Lookup
         self.add_evil_angel('/scenes/1678283?')
+        self.add_evil_angel('/scenes/1678283?add_to_collection=1')
 
         self.add_evil_angel('/movies?parse=evilangel.2022-01-03.Carmela%20Clutch%20Fabulous%20Anal%203-Way&limit=25')
         self.add_evil_angel('/movies?parse=evilangel.Carmela%20Clutch%20Fabulous%20Anal%203-Way&limit=25')
         self.add_evil_angel('/movies?parse=evilangel.2022-01-03.&limit=25')
         self.add_evil_angel('/movies/1678283?')
+        self.add_evil_angel('/movies/1678283?add_to_collection=1')
 
         self.add_evil_angel('/movies?parse=EvilAngel%20-%202022-01-03%20-%20Carmela%20Clutch%20Fabulous%20Anal%203-Way%21&limit=25')
 
@@ -178,6 +180,7 @@ class FakeTPDB(ParrotWebServer):
         self.add_dorcel_club('/scenes?parse=dorcelclub.&limit=25')
         # Extra Metadata Lookup
         self.add_dorcel_club('/scenes/1674059?')
+        self.add_dorcel_club('/scenes/1674059?add_to_collection=1')
         # with utf8 characters
         self.add_dorcel_club('/scenes?parse=dorcelclub.2021-12-23.Aya%20B%D0%B5n%D0%B5tti%20M%D0%B5gane%20Lop%D0%B5z%20And%20B%D0%B5lla%20Tina&limit=25')
 
@@ -188,6 +191,7 @@ class FakeTPDB(ParrotWebServer):
         self.add_brazzers_extra('/scenes?parse=brazzersexxtra.&limit=25')
         # Extra Metadata Lookup
         self.add_brazzers_extra('/scenes/1836175?')
+        self.add_brazzers_extra('/scenes/1836175?add_to_collection=1')
 
         # None existant Good Angel:
         # Search Results
