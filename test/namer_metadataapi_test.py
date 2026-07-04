@@ -316,7 +316,7 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
 
         variants = [attempt['variant'] for attempt in results.search_attempts]
         self.assertIn('primary:scene:phash', variants)
-        self.assertIn('primary:scene:no_name', variants)
+        self.assertIn('site_repair:scene', variants)
         self.assertNotIn('primary:scene:phash:no_name', variants)
 
     @mock.patch('namer.metadataapi.__get_metadataapi_net_fileinfo')
@@ -330,6 +330,31 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
         variants = [attempt['variant'] for attempt in results.search_attempts]
         self.assertIn('site_repair:scene', variants)
         self.assertIn('site_repair:movie', variants)
+
+    @mock.patch('namer.metadataapi.__get_metadataapi_net_fileinfo')
+    def test_match_skips_primary_site_only_for_site_repair_candidate(self, mock_lookup):
+        config = sample_config()
+        fileinfo = parse_file_name('New.Scene.Title.mp4', config)
+        mock_lookup.return_value = []
+
+        results = match(fileinfo, config)
+
+        variants = [attempt['variant'] for attempt in results.search_attempts]
+        self.assertIn('primary:scene', variants)
+        self.assertIn('site_repair:scene', variants)
+        self.assertNotIn('primary:scene:no_name', variants)
+        self.assertNotIn('primary:movie:no_name', variants)
+
+    @mock.patch('namer.metadataapi.__get_metadataapi_net_fileinfo')
+    def test_match_keeps_primary_site_only_when_date_is_present(self, mock_lookup):
+        config = sample_config()
+        fileinfo = parse_file_name('Example.2026.07.04.Scene.Title.mp4', config)
+        mock_lookup.return_value = []
+
+        results = match(fileinfo, config)
+
+        variants = [attempt['variant'] for attempt in results.search_attempts]
+        self.assertIn('primary:scene:no_name', variants)
 
     def test_phash_duration_tolerance_allows_small_difference(self):
         self.assertTrue(_phash_duration_matches(1201, 1200, tolerance_seconds=2))
