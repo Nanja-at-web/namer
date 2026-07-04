@@ -124,6 +124,8 @@ def _candidate_as_dict(result: ComparisonResult) -> Dict[str, Any]:
         'source_url': looked_up.source_url,
         'search_variant': result.search_variant,
         'search_scene_type': result.search_scene_type,
+        'jav_code': result.jav_code,
+        'jav_code_match': result.jav_code_match,
         'search_parse_site': result.name_parts.site if result.name_parts else None,
         'search_parse_date': result.name_parts.date if result.name_parts else None,
         'search_parse_name': result.name_parts.name if result.name_parts else None,

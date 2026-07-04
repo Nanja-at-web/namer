@@ -12,7 +12,7 @@ from loguru import logger
 from namer.configuration import NamerConfig
 from namer.configuration_utils import verify_configuration
 from namer.name_formatter import PartialFormatter
-from namer.comparison_results import ComparisonResult, ComparisonResults, LookedUpFileInfo, Performer
+from namer.comparison_results import ComparisonResult, ComparisonResults, LookedUpFileInfo, Performer, SceneType
 from namer.fileinfo import FileInfo
 from test import utils
 
@@ -250,6 +250,53 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
 
         self.assertIsNone(ComparisonResults([wrong_site], no_date).get_match(allow_text_similarity_auto_write=True))
         self.assertIsNone(ComparisonResults([date_mismatch], with_date).get_match(allow_text_similarity_auto_write=True))
+
+    def test_jav_code_match_auto_matches_exact_jav_candidate(self):
+        looked_up = LookedUpFileInfo()
+        looked_up.type = SceneType.JAV
+        result = ComparisonResult(
+            name='Weak text',
+            name_match=20.0,
+            site_match=False,
+            date_match=False,
+            name_parts=None,
+            looked_up=looked_up,
+            phash_distance=None,
+            phash_duration=None,
+        )
+        result.jav_code = 'SSIS001'
+        result.jav_code_match = True
+
+        self.assertTrue(result.is_match())
+        self.assertEqual(ComparisonResults([result], None).get_match(), result)
+
+    def test_jav_code_match_rejects_multiple_exact_candidates(self):
+        looked_up = LookedUpFileInfo()
+        looked_up.type = SceneType.JAV
+        result = ComparisonResult(
+            name='First',
+            name_match=20.0,
+            site_match=False,
+            date_match=False,
+            name_parts=None,
+            looked_up=looked_up,
+            phash_distance=None,
+            phash_duration=None,
+        )
+        competitor = ComparisonResult(
+            name='Second',
+            name_match=19.0,
+            site_match=False,
+            date_match=False,
+            name_parts=None,
+            looked_up=looked_up,
+            phash_distance=None,
+            phash_duration=None,
+        )
+        result.jav_code = competitor.jav_code = 'SSIS001'
+        result.jav_code_match = competitor.jav_code_match = True
+
+        self.assertIsNone(ComparisonResults([result, competitor], None).get_match())
 
     def test_formatter(self):
         """

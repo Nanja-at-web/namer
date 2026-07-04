@@ -366,11 +366,27 @@ class ComparisonResult:
     API scene type used for the candidate search. Observational only.
     """
 
+    jav_code: Optional[str] = None
+    """
+    Normalized JAV studio code detected in the source name, such as ABP123.
+    """
+
+    jav_code_match: Optional[bool] = None
+    """
+    Whether the detected JAV code exactly appears in the candidate metadata.
+    """
+
     def is_phash_match(self, target_distance: int = 0) -> bool:
         """
         Returns true if match is a phash match.
         """
         return self.phash_distance is not None and self.phash_distance <= target_distance and self.phash_duration is True
+
+    def is_jav_code_match(self) -> bool:
+        """
+        Returns true when an exact JAV studio code match identifies a JAV candidate.
+        """
+        return bool(self.jav_code and self.jav_code_match and self.looked_up and self.looked_up.type == SceneType.JAV)
 
     def is_match(self, target: float = 94.9, target_distance: int = 0) -> bool:
         """
@@ -378,7 +394,7 @@ class ComparisonResult:
         the metadate to 90% or more (via RapidFuzz, and various concatenations of metadata about
         actors and scene name) or is a phash match.
         """
-        return bool(self.site_match and self.date_match and self.name_match and self.name_match >= target) or self.is_phash_match(target_distance)
+        return bool(self.site_match and self.date_match and self.name_match and self.name_match >= target) or self.is_phash_match(target_distance) or self.is_jav_code_match()
 
     def is_super_match(self, target: float = 94.9, target_distance: int = 0) -> bool:
         """
@@ -409,6 +425,8 @@ class ComparisonResult:
             'phash_duration_delta_seconds': self.phash_duration_delta_seconds,
             'search_variant': self.search_variant,
             'search_scene_type': self.search_scene_type,
+            'jav_code': self.jav_code,
+            'jav_code_match': self.jav_code_match,
         }
 
 

@@ -50,6 +50,21 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
         self.assertEqual(candidates[0]['phash_duration_delta_seconds'], 1)
         self.assertIn('search_variant', candidates[0])
         self.assertIn('search_parse_name', candidates[0])
+        self.assertIn('jav_code', candidates[0])
+        self.assertIn('jav_code_match', candidates[0])
+
+    def test_candidate_summary_records_jav_code_match(self):
+        result = _result()
+        result.jav_code = 'SSIS001'
+        result.jav_code_match = True
+        result.search_variant = 'jav_code:jav'
+        result.search_scene_type = 'JAV'
+
+        candidates = orjson.loads(_candidate_summary(ComparisonResults([result], None)))
+
+        self.assertEqual(candidates[0]['jav_code'], 'SSIS001')
+        self.assertTrue(candidates[0]['jav_code_match'])
+        self.assertEqual(candidates[0]['search_variant'], 'jav_code:jav')
 
     def test_candidate_summary_respects_candidate_limit(self):
         results = ComparisonResults([_result(name_match=99), _result(name_match=98), _result(name_match=97)], None)

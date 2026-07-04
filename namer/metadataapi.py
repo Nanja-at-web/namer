@@ -38,6 +38,8 @@ DEFAULT_BACKGROUNDS = [
     'https://cdn.theporndb.net/images/scene/default_3.png',
 ]
 
+JAV_CODE_RE = re.compile(r'(?<![a-z0-9])(?P<prefix>[a-z]{2,8})(?P<sep>[\s._-]?)(?P<number>\d{2,5})(?![a-z0-9])', re.IGNORECASE)
+
 
 def __get_default_background():
     return random.choice(DEFAULT_BACKGROUNDS)
@@ -77,6 +79,7 @@ def __evaluate_match(name_parts: Optional[FileInfo], looked_up: LookedUpFileInfo
     found_site = None
     release_date = False
     result: Tuple[str, float] = ('', 0.0)
+    jav_code = detect_jav_code(name_parts)
 
     if name_parts:
         if looked_up.site:
@@ -140,7 +143,7 @@ def __evaluate_match(name_parts: Optional[FileInfo], looked_up: LookedUpFileInfo
 
             phash_distance, phash_duration, phash_duration_delta_seconds = min(hashes_distances) if hashes_distances else (None, None, None)
 
-    return ComparisonResult(
+    comparison_result = ComparisonResult(
         name=result[0],
         name_match=result[1],
         date_match=release_date,
@@ -151,6 +154,9 @@ def __evaluate_match(name_parts: Optional[FileInfo], looked_up: LookedUpFileInfo
         phash_duration=phash_duration,
         phash_duration_delta_seconds=phash_duration_delta_seconds,
     )
+    comparison_result.jav_code = jav_code
+    comparison_result.jav_code_match = _candidate_matches_jav_code(looked_up, jav_code)
+    return comparison_result
 
 
 def _phash_duration_delta_seconds(candidate_duration: Optional[int], source_duration: Optional[int]) -> Optional[int]:
@@ -246,6 +252,7 @@ def _record_search_attempt(
             'has_site': bool(name_parts and name_parts.site),
             'has_date': bool(name_parts and name_parts.date and not skip_date),
             'has_name': bool(name_parts and name_parts.name and not skip_name),
+            'jav_code': detect_jav_code(name_parts),
             'parse_site_len': len(name_parts.site) if name_parts and name_parts.site else 0,
             'parse_name_len': len(name_parts.name) if name_parts and name_parts.name else 0,
         }
@@ -308,6 +315,9 @@ def __metadata_api_lookup(name_parts: FileInfo, namer_config: NamerConfig, phash
     repair_site_first = _is_site_repair_candidate(name_parts)
 
     results: List[ComparisonResult] = []
+    if detect_jav_code(name_parts):
+        results = __metadata_api_lookup_jav_code(results, search_attempts, name_parts, namer_config, phash)
+
     results: List[ComparisonResult] = __metadata_api_lookup_type(results, search_attempts, name_parts, namer_config, scene_type, phash, allow_site_only_search=not repair_site_first)
     if repair_site_first and (not results or not results[0].is_match(target_distance=namer_config.phash_match_distance)):
         results = __metadata_api_lookup_overparsed_name(results, search_attempts, name_parts, namer_config, phash)
@@ -320,6 +330,75 @@ def __metadata_api_lookup(name_parts: FileInfo, namer_config: NamerConfig, phash
         results = __metadata_api_lookup_overparsed_name(results, search_attempts, name_parts, namer_config, phash)
 
     return results
+
+
+def __metadata_api_lookup_jav_code(results: List[ComparisonResult], search_attempts: List[dict], name_parts: FileInfo, namer_config: NamerConfig, phash: Optional[PerceptualHash] = None) -> List[ComparisonResult]:
+    jav_parts = build_jav_code_fileinfo(name_parts)
+    if not jav_parts:
+        return results
+
+    results = __update_results(results, search_attempts, jav_parts, namer_config, scene_type=SceneType.JAV, phash=phash, search_variant='jav_code')
+    return results
+
+
+def build_jav_code_fileinfo(name_parts: Optional[FileInfo]) -> Optional[FileInfo]:
+    jav_code = detect_jav_code(name_parts)
+    if not jav_code or not name_parts:
+        return None
+
+    fallback = FileInfo()
+    fallback.name = jav_code
+    fallback.extension = name_parts.extension
+    fallback.source_file_name = name_parts.source_file_name
+    fallback.source_file_stem = name_parts.source_file_stem
+    fallback.hashes = name_parts.hashes
+    fallback.trans = name_parts.trans
+    return fallback
+
+
+def detect_jav_code(name_parts: Optional[FileInfo]) -> Optional[str]:
+    if not name_parts:
+        return None
+
+    for value in (name_parts.source_file_stem, name_parts.source_file_name, name_parts.site, name_parts.name):
+        jav_code = _detect_jav_code_in_text(value)
+        if jav_code:
+            return jav_code
+
+    return None
+
+
+def _detect_jav_code_in_text(text: Optional[str]) -> Optional[str]:
+    codes = _detect_jav_codes_in_text(text)
+    return codes[0] if codes else None
+
+
+def _detect_jav_codes_in_text(text: Optional[str]) -> List[str]:
+    if not text:
+        return []
+
+    codes = []
+    for match in JAV_CODE_RE.finditer(unidecode(text)):
+        prefix = match.group('prefix')
+        if not match.group('sep') and prefix != prefix.upper():
+            continue
+
+        codes.append(f"{prefix}{match.group('number')}".upper())
+
+    return codes
+
+
+def _candidate_matches_jav_code(looked_up: LookedUpFileInfo, jav_code: Optional[str]) -> Optional[bool]:
+    if not jav_code:
+        return None
+
+    values = [
+        looked_up.name,
+        looked_up.source_url,
+        looked_up.external_id,
+        str(looked_up.look_up_site_id) if looked_up.look_up_site_id else None,
+    ]
+    return any(jav_code in _detect_jav_codes_in_text(value) for value in values if value)
 
 
 def _is_site_repair_candidate(name_parts: Optional[FileInfo]) -> bool:
@@ -441,6 +520,10 @@ def __match_weight(result: ComparisonResult) -> float:
     if result.site_match and result.date_match and result.name_match and result.name_match >= 94.9:
         logger.debug("Name match of {:.2f} with '{} - {} - {}' for name: {}", value, result.looked_up.site, result.looked_up.date, result.looked_up.name, result.name)
         value += 1000.00
+        value = (result.name_match + value) if result.name_match else value
+    elif result.is_jav_code_match():
+        logger.debug("JAV code match with '{} - {} - {}' for code: {}", result.looked_up.site, result.looked_up.date, result.looked_up.name, result.jav_code)
+        value += 950.00
         value = (result.name_match + value) if result.name_match else value
     elif result.is_no_date_text_match(result.name_parts):
         logger.debug("No-date text match of {:.2f} with '{} - {} - {}' for name: {}", value, result.looked_up.site, result.looked_up.date, result.looked_up.name, result.name)

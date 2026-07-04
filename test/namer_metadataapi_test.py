@@ -12,7 +12,7 @@ from loguru import logger
 from namer.comparison_results import ComparisonResult, ComparisonResults, LookedUpFileInfo, SceneType
 from namer.fileinfo import parse_file_name
 from namer.command import make_command
-from namer.metadataapi import _add_or_replace_result, _phash_duration_delta_seconds, _phash_duration_matches, build_overparsed_name_fallback, build_overparsed_name_fallbacks, build_site_repair_fallbacks, main, match
+from namer.metadataapi import _add_or_replace_result, _candidate_matches_jav_code, _phash_duration_delta_seconds, _phash_duration_matches, build_jav_code_fileinfo, build_overparsed_name_fallback, build_overparsed_name_fallbacks, build_site_repair_fallbacks, detect_jav_code, main, match
 from test import utils
 from test.utils import environment, sample_config
 
@@ -239,6 +239,35 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
             self.assertIsNone(fallback.site)
             self.assertIsNone(fallback.date)
 
+    def test_detect_jav_code_normalizes_common_formats(self):
+        config = sample_config()
+
+        self.assertEqual(detect_jav_code(parse_file_name('ABC-123.Some.Title.mp4', config)), 'ABC123')
+        self.assertEqual(detect_jav_code(parse_file_name('ABP123.Some.Title.mp4', config)), 'ABP123')
+        self.assertEqual(detect_jav_code(parse_file_name('SSIS_001.Some.Title.mp4', config)), 'SSIS001')
+        self.assertEqual(detect_jav_code(parse_file_name('MIDE 987 Some Title.mp4', config)), 'MIDE987')
+        self.assertIsNone(detect_jav_code(parse_file_name('Megan2022.Some.Title.mp4', config)))
+
+    def test_build_jav_code_fileinfo_uses_code_as_search_name(self):
+        name = parse_file_name('SSIS-001.Some.Title.mp4', sample_config())
+
+        fallback = build_jav_code_fileinfo(name)
+
+        self.assertIsNotNone(fallback)
+        self.assertEqual(fallback.name, 'SSIS001')
+        self.assertIsNone(fallback.site)
+        self.assertIsNone(fallback.date)
+
+    def test_candidate_jav_code_match_requires_exact_code(self):
+        looked_up = LookedUpFileInfo()
+        looked_up.name = 'ABP-1234 Similar Code'
+        looked_up.source_url = 'https://example.test/abp-1234'
+
+        self.assertFalse(_candidate_matches_jav_code(looked_up, 'ABP123'))
+
+        looked_up.external_id = 'ABP-123'
+        self.assertTrue(_candidate_matches_jav_code(looked_up, 'ABP123'))
+
     def test_overparsed_name_fallback_does_not_allow_text_auto_match(self):
         name = parse_file_name('New.Scene.Title.1080p.mp4', sample_config())
         fallback = build_overparsed_name_fallback(name)
@@ -330,6 +359,18 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
         variants = [attempt['variant'] for attempt in results.search_attempts]
         self.assertIn('site_repair:scene', variants)
         self.assertIn('site_repair:movie', variants)
+
+    @mock.patch('namer.metadataapi.__get_metadataapi_net_fileinfo')
+    def test_match_records_jav_code_search_attempts(self, mock_lookup):
+        config = sample_config()
+        fileinfo = parse_file_name('SSIS-001.Some.Title.mp4', config)
+        mock_lookup.return_value = []
+
+        results = match(fileinfo, config)
+
+        attempts = [attempt for attempt in results.search_attempts if attempt['variant'].startswith('jav_code:jav')]
+        self.assertTrue(attempts)
+        self.assertEqual(attempts[0]['jav_code'], 'SSIS001')
 
     @mock.patch('namer.metadataapi.__get_metadataapi_net_fileinfo')
     def test_match_skips_primary_site_only_for_site_repair_candidate(self, mock_lookup):
