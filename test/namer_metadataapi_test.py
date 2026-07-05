@@ -248,6 +248,14 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
         self.assertEqual(detect_jav_code(parse_file_name('MIDE 987 Some Title.mp4', config)), 'MIDE987')
         self.assertIsNone(detect_jav_code(parse_file_name('Megan2022.Some.Title.mp4', config)))
 
+    def test_detect_jav_code_ignores_title_word_years(self):
+        config = sample_config()
+
+        self.assertIsNone(detect_jav_code(parse_file_name('New.2022.Scene.Title.mp4', config)))
+        self.assertIsNone(detect_jav_code(parse_file_name('Megan.2020.Scene.Title.mp4', config)))
+        self.assertIsNone(detect_jav_code(parse_file_name('Movie-1080.Title.mp4', config)))
+        self.assertEqual(detect_jav_code(parse_file_name('SSIS-2022.Some.Title.mp4', config)), 'SSIS2022')
+
     def test_build_jav_code_fileinfo_uses_code_as_search_name(self):
         name = parse_file_name('SSIS-001.Some.Title.mp4', sample_config())
 

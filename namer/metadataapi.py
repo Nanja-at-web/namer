@@ -39,6 +39,19 @@ DEFAULT_BACKGROUNDS = [
 ]
 
 JAV_CODE_RE = re.compile(r'(?<![a-z0-9])(?P<prefix>[a-z]{2,8})(?P<sep>[\s._-]?)(?P<number>\d{2,5})(?![a-z0-9])', re.IGNORECASE)
+COMMON_YEAR_PREFIXES = {
+    'CLIP',
+    'EPISODE',
+    'FULL',
+    'HD',
+    'HOT',
+    'MOVIE',
+    'NEW',
+    'PART',
+    'SCENE',
+    'VIDEO',
+}
+COMMON_RESOLUTION_NUMBERS = {'480', '540', '720', '1080', '2160', '4320'}
 
 
 def __get_default_background():
@@ -383,12 +396,37 @@ def _detect_jav_codes_in_text(text: Optional[str]) -> List[str]:
     codes = []
     for match in JAV_CODE_RE.finditer(unidecode(text)):
         prefix = match.group('prefix')
+        number = match.group('number')
         if not match.group('sep') and prefix != prefix.upper():
             continue
 
-        codes.append(f"{prefix}{match.group('number')}".upper())
+        if _looks_like_plain_year_or_resolution(prefix, number):
+            continue
+
+        codes.append(f'{prefix}{number}'.upper())
 
     return codes
+
+
+def _looks_like_plain_year_or_resolution(prefix: str, number: str) -> bool:
+    """
+    Avoid treating ordinary title words plus a year/resolution as a JAV code.
+
+    Real JAV codes can contain four digits, so this only filters ambiguous cases:
+    mixed/lowercase title words and common non-studio words with a 19xx/20xx
+    year or a typical video resolution.
+    """
+    if number in COMMON_RESOLUTION_NUMBERS:
+        return prefix != prefix.upper() or prefix.upper() in COMMON_YEAR_PREFIXES
+
+    with suppress(ValueError):
+        numeric = int(number)
+        if numeric < 1900 or numeric > 2099:
+            return False
+
+        return prefix != prefix.upper() or prefix.upper() in COMMON_YEAR_PREFIXES
+
+    return False
 
 
 def _candidate_matches_jav_code(looked_up: LookedUpFileInfo, jav_code: Optional[str]) -> Optional[bool]:
