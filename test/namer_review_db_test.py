@@ -10,7 +10,7 @@ import orjson
 
 from namer.comparison_results import ComparisonResult, ComparisonResults, LookedUpFileInfo
 from namer.fileinfo import FileInfo
-from namer.review_db import _candidate_summary, _search_attempts_summary, _selected_candidate_summary, classify_review_reason
+from namer.review_db import _candidate_summary, _search_attempts_summary, _search_variants_summary, _selected_candidate_summary, _top_search_variant, classify_review_reason
 
 
 class UnitTestAsTheDefaultExecution(unittest.TestCase):
@@ -90,6 +90,27 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
 
         self.assertEqual(attempts[0]['variant'], 'overparsed_site_fallback:scene')
         self.assertEqual(attempts[0]['result_count'], 0)
+
+    def test_search_variant_summaries_include_zero_result_attempts(self):
+        results = ComparisonResults(
+            [],
+            None,
+            [
+                {
+                    'variant': 'primary:scene',
+                    'scene_type': 'Scene',
+                    'result_count': 0,
+                },
+                {
+                    'variant': 'site_repair:scene',
+                    'scene_type': 'Scene',
+                    'result_count': 0,
+                },
+            ],
+        )
+
+        self.assertEqual(_top_search_variant(results), 'primary:scene')
+        self.assertEqual(orjson.loads(_search_variants_summary(results)), ['primary:scene', 'site_repair:scene'])
 
     def test_selected_candidate_summary_records_actual_match(self):
         selected = _result(site_match=False, date_match=False, name_match=90)

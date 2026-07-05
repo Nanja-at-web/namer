@@ -148,10 +148,18 @@ def _candidate_count(search_results: Optional[ComparisonResults]) -> int:
 
 
 def _top_search_variant(search_results: Optional[ComparisonResults]) -> Optional[str]:
-    if not search_results or not search_results.results:
+    if not search_results:
         return None
 
-    return search_results.results[0].search_variant
+    if search_results.results:
+        return search_results.results[0].search_variant
+
+    for attempt in search_results.search_attempts:
+        variant = attempt.get('variant')
+        if variant:
+            return variant
+
+    return None
 
 
 def _search_variants_summary(search_results: Optional[ComparisonResults]) -> str:
@@ -164,6 +172,12 @@ def _search_variants_summary(search_results: Optional[ComparisonResults]) -> str
         if result.search_variant and result.search_variant not in seen:
             variants.append(result.search_variant)
             seen.add(result.search_variant)
+
+    for attempt in search_results.search_attempts:
+        variant = attempt.get('variant')
+        if variant and variant not in seen:
+            variants.append(variant)
+            seen.add(variant)
 
     return _json_dumps(variants)
 
