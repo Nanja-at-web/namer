@@ -185,8 +185,9 @@ def __update_results(
     phash: Optional[PerceptualHash] = None,
     verified_site_context: bool = True,
     search_variant: str = 'primary',
+    force_lookup: bool = False,
 ):
-    if not results or not results[0].is_match(target_distance=namer_config.phash_match_distance):
+    if force_lookup or not results or not results[0].is_match(target_distance=namer_config.phash_match_distance):
         match_attempts = __get_metadataapi_net_fileinfo(name_parts, namer_config, skip_date, skip_name, scene_type=scene_type, phash=phash)
         variant = _search_variant_name(search_variant, scene_type, phash=phash, skip_date=skip_date, skip_name=skip_name)
         _record_search_attempt(search_attempts, variant, name_parts, scene_type, len(match_attempts), phash=phash, skip_date=skip_date, skip_name=skip_name)
@@ -286,19 +287,20 @@ def __metadata_api_lookup_type(
     scene_type: SceneType,
     phash: Optional[PerceptualHash] = None,
     allow_site_only_search: bool = True,
+    force_lookup: bool = False,
 ) -> List[ComparisonResult]:
-    results = __update_results(results, search_attempts, name_parts, namer_config, scene_type=scene_type, phash=phash, search_variant='primary')
+    results = __update_results(results, search_attempts, name_parts, namer_config, scene_type=scene_type, phash=phash, search_variant='primary', force_lookup=force_lookup)
     if not phash and allow_site_only_search:
-        results = __update_results(results, search_attempts, name_parts, namer_config, skip_name=True, scene_type=scene_type, search_variant='primary')
+        results = __update_results(results, search_attempts, name_parts, namer_config, skip_name=True, scene_type=scene_type, search_variant='primary', force_lookup=force_lookup)
 
     if phash:
-        results = __update_results(results, search_attempts, name_parts, namer_config, scene_type=scene_type, search_variant='primary')
+        results = __update_results(results, search_attempts, name_parts, namer_config, scene_type=scene_type, search_variant='primary', force_lookup=force_lookup)
         if allow_site_only_search:
-            results = __update_results(results, search_attempts, name_parts, namer_config, skip_name=True, scene_type=scene_type, search_variant='primary')
+            results = __update_results(results, search_attempts, name_parts, namer_config, skip_name=True, scene_type=scene_type, search_variant='primary', force_lookup=force_lookup)
 
     if name_parts and name_parts.date:
-        results = __update_results(results, search_attempts, name_parts, namer_config, skip_date=True, scene_type=scene_type, search_variant='date_fallback')
-        results = __update_results(results, search_attempts, name_parts, namer_config, skip_date=True, skip_name=True, scene_type=scene_type, search_variant='date_fallback')
+        results = __update_results(results, search_attempts, name_parts, namer_config, skip_date=True, scene_type=scene_type, search_variant='date_fallback', force_lookup=force_lookup)
+        results = __update_results(results, search_attempts, name_parts, namer_config, skip_date=True, skip_name=True, scene_type=scene_type, search_variant='date_fallback', force_lookup=force_lookup)
 
     return results
 
@@ -312,22 +314,23 @@ def __metadata_api_lookup(name_parts: FileInfo, namer_config: NamerConfig, phash
         if name_parts.site.strip().lower() in namer_config.movie_data_preferred:
             scene_type = SceneType.MOVIE
 
+    jav_code = detect_jav_code(name_parts)
     repair_site_first = _is_site_repair_candidate(name_parts)
 
     results: List[ComparisonResult] = []
-    if detect_jav_code(name_parts):
+    if jav_code:
         results = __metadata_api_lookup_jav_code(results, search_attempts, name_parts, namer_config, phash)
 
-    results: List[ComparisonResult] = __metadata_api_lookup_type(results, search_attempts, name_parts, namer_config, scene_type, phash, allow_site_only_search=not repair_site_first)
-    if repair_site_first and (not results or not results[0].is_match(target_distance=namer_config.phash_match_distance)):
-        results = __metadata_api_lookup_overparsed_name(results, search_attempts, name_parts, namer_config, phash)
+    results: List[ComparisonResult] = __metadata_api_lookup_type(results, search_attempts, name_parts, namer_config, scene_type, phash, allow_site_only_search=not repair_site_first, force_lookup=bool(jav_code))
+    if repair_site_first and (jav_code or not results or not results[0].is_match(target_distance=namer_config.phash_match_distance)):
+        results = __metadata_api_lookup_overparsed_name(results, search_attempts, name_parts, namer_config, phash, force_lookup=bool(jav_code))
 
-    if not results or not results[0].is_match(target_distance=namer_config.phash_match_distance):
+    if jav_code or not results or not results[0].is_match(target_distance=namer_config.phash_match_distance):
         scene_type = SceneType.MOVIE if scene_type == SceneType.SCENE else SceneType.SCENE
-        results: List[ComparisonResult] = __metadata_api_lookup_type(results, search_attempts, name_parts, namer_config, scene_type, phash, allow_site_only_search=not repair_site_first)
+        results: List[ComparisonResult] = __metadata_api_lookup_type(results, search_attempts, name_parts, namer_config, scene_type, phash, allow_site_only_search=not repair_site_first, force_lookup=bool(jav_code))
 
-    if not repair_site_first and (not results or not results[0].is_match(target_distance=namer_config.phash_match_distance)):
-        results = __metadata_api_lookup_overparsed_name(results, search_attempts, name_parts, namer_config, phash)
+    if not repair_site_first and (jav_code or not results or not results[0].is_match(target_distance=namer_config.phash_match_distance)):
+        results = __metadata_api_lookup_overparsed_name(results, search_attempts, name_parts, namer_config, phash, force_lookup=bool(jav_code))
 
     return results
 
@@ -405,11 +408,11 @@ def _is_site_repair_candidate(name_parts: Optional[FileInfo]) -> bool:
     return bool(name_parts and name_parts.site and name_parts.name and not name_parts.date)
 
 
-def __metadata_api_lookup_overparsed_name(results: List[ComparisonResult], search_attempts: List[dict], name_parts: FileInfo, namer_config: NamerConfig, phash: Optional[PerceptualHash] = None) -> List[ComparisonResult]:
+def __metadata_api_lookup_overparsed_name(results: List[ComparisonResult], search_attempts: List[dict], name_parts: FileInfo, namer_config: NamerConfig, phash: Optional[PerceptualHash] = None, force_lookup: bool = False) -> List[ComparisonResult]:
     for fallback_parts in build_site_repair_fallbacks(name_parts, namer_config):
-        results = __update_results(results, search_attempts, fallback_parts, namer_config, scene_type=SceneType.SCENE, phash=phash, verified_site_context=False, search_variant='site_repair')
-        if not results or not results[0].is_match(target_distance=namer_config.phash_match_distance):
-            results = __update_results(results, search_attempts, fallback_parts, namer_config, scene_type=SceneType.MOVIE, phash=phash, verified_site_context=False, search_variant='site_repair')
+        results = __update_results(results, search_attempts, fallback_parts, namer_config, scene_type=SceneType.SCENE, phash=phash, verified_site_context=False, search_variant='site_repair', force_lookup=force_lookup)
+        if force_lookup or not results or not results[0].is_match(target_distance=namer_config.phash_match_distance):
+            results = __update_results(results, search_attempts, fallback_parts, namer_config, scene_type=SceneType.MOVIE, phash=phash, verified_site_context=False, search_variant='site_repair', force_lookup=force_lookup)
 
     return results
 

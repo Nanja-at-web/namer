@@ -373,6 +373,33 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
         self.assertEqual(attempts[0]['jav_code'], 'SSIS001')
 
     @mock.patch('namer.metadataapi.__get_metadataapi_net_fileinfo')
+    def test_jav_code_match_does_not_skip_scene_and_movie_searches(self, mock_lookup):
+        config = sample_config()
+        fileinfo = parse_file_name('SSIS-001.Some.Title.mp4', config)
+
+        def lookup(_name_parts, _config, _skip_date, _skip_name, scene_type=SceneType.SCENE, phash=None):
+            if scene_type != SceneType.JAV or phash:
+                return []
+
+            looked_up = LookedUpFileInfo()
+            looked_up.type = SceneType.JAV
+            looked_up.uuid = 'jav/1'
+            looked_up.guid = 'jav-guid'
+            looked_up.name = 'SSIS-001'
+            looked_up.site = 'Example JAV'
+            looked_up.source_url = 'https://example.test/ssis-001'
+            return [looked_up]
+
+        mock_lookup.side_effect = lookup
+
+        results = match(fileinfo, config)
+
+        variants = [attempt['variant'] for attempt in results.search_attempts]
+        self.assertIn('jav_code:jav', variants)
+        self.assertIn('primary:scene', variants)
+        self.assertIn('primary:movie', variants)
+
+    @mock.patch('namer.metadataapi.__get_metadataapi_net_fileinfo')
     def test_match_skips_primary_site_only_for_site_repair_candidate(self, mock_lookup):
         config = sample_config()
         fileinfo = parse_file_name('New.Scene.Title.mp4', config)
