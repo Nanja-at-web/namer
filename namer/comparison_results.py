@@ -450,6 +450,7 @@ class ComparisonResults:
                 # Now that matches are unique in the list, don't match if there are multiple
                 if match:
                     match_is_super = match.is_super_match(target_distance=target_distance)
+                    match_is_phash = match.is_phash_match(target_distance=target_distance)
                     potential_is_match = potential.is_match(target_distance=target_distance)
                     potential_is_super = potential.is_super_match(target_distance=target_distance)
                     potential_is_phash_match = potential.is_phash_match(target_distance=target_distance)
@@ -457,17 +458,17 @@ class ComparisonResults:
                         allow_text_similarity_auto_write
                         and potential.is_no_date_text_match(self.fileinfo, match.name_match - NO_DATE_TEXT_MATCH_MARGIN if match.name_match else NO_DATE_TEXT_MATCH_TARGET)
                     )
-                    if match.is_phash_match(target_distance=target_distance) and potential_is_phash_match:
+                    if match_is_phash and potential_is_phash_match:
                         if (potential.phash_distance or 0) < (match.phash_distance or 0):
                             match = potential
                         elif potential.phash_distance == match.phash_distance and (potential.name_match or 0) > (match.name_match or 0):
                             match = potential
                     elif potential_is_phash_match:
                         match = potential
-                    elif not match_is_super and potential_is_match or potential_is_super:  # noqa: SIM114
+                    elif not match_is_phash and (not match_is_super and potential_is_match or potential_is_super):  # noqa: SIM114
                         match = None
                     elif not match_is_super and potential_is_close_no_date:
                         match = None
-                    elif not match_is_super and not match.is_phash_match(target_distance=target_distance) and potential.name_match > match.name_match:
+                    elif not match_is_super and not match_is_phash and potential.name_match > match.name_match:
                         match = None
         return match

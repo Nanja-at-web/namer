@@ -298,6 +298,34 @@ class UnitTestAsTheDefaultExecution(unittest.TestCase):
 
         self.assertIsNone(ComparisonResults([result, competitor], None).get_match())
 
+    def test_phash_jav_code_match_is_not_blocked_by_text_jav_code_candidate(self):
+        looked_up = LookedUpFileInfo()
+        looked_up.type = SceneType.JAV
+        result = ComparisonResult(
+            name='Weak text',
+            name_match=51.0,
+            site_match=True,
+            date_match=False,
+            name_parts=None,
+            looked_up=looked_up,
+            phash_distance=2,
+            phash_duration=True,
+        )
+        competitor = ComparisonResult(
+            name='Better text',
+            name_match=60.0,
+            site_match=True,
+            date_match=False,
+            name_parts=None,
+            looked_up=looked_up,
+            phash_distance=None,
+            phash_duration=None,
+        )
+        result.jav_code = competitor.jav_code = 'SSIS001'
+        result.jav_code_match = competitor.jav_code_match = True
+
+        self.assertEqual(ComparisonResults([result, competitor], None).get_match(target_distance=6), result)
+
     def test_formatter(self):
         """
         Verify that partial formatter can handle missing fields gracefully,
